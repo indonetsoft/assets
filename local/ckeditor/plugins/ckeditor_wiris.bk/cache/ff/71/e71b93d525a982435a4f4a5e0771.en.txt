@@ -1,0 +1,1 @@
+{"result":{"text":"2 subscript 4 superscript 3"},"status":"ok"}
