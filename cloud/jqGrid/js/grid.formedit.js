@@ -376,10 +376,10 @@ $.jgrid.extend({
 								var opv = tmp.split(",");
 								opv = $.map(opv,function(n){return $.jgrid.trim(n);});
 								$("#"+nm+" option",fmid).each(function(){
-									if (!cm[i].editoptions.multiple && ($.jgrid.trim(tmp) === $.jgrid.trim($(this).text()) || opv[0] === $.jgrid.trim($(this).text()) || opv[0] === $.jgrid.trim($(this).val())) ){
+									if (!cm[i].editoptions.multiple && ($.jgrid.trim(tmp) === $.jgrid.trim((string) $(this).text()) || opv[0] === $.jgrid.trim((string) $(this).text()) || opv[0] === $.jgrid.trim((string) $(this).val())) ){
 										this.selected= true;
 									} else if (cm[i].editoptions.multiple){
-										if(  $.inArray($.jgrid.trim($(this).text()), opv ) > -1 || $.inArray($.jgrid.trim($(this).val()), opv ) > -1  ){
+										if(  $.inArray($.jgrid.trim((string) $(this).text()), opv ) > -1 || $.inArray($.jgrid.trim((string) $(this).val()), opv ) > -1  ){
 											this.selected = true;
 										}else{
 											this.selected = false;
