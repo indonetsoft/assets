@@ -1,6 +1,6 @@
 /* *
  *
- *  (c) 2010-2020 Torstein Honsi
+ *  (c) 2010-2024 Torstein Honsi
  *
  *  License: www.highcharts.com/license
  *
@@ -8,42 +8,47 @@
  *
  * */
 'use strict';
+import Color from '../Color/Color.js';
+const { parse: color } = Color;
 import H from '../Globals.js';
-var win = H.win;
+const { win } = H;
 import U from '../Utilities.js';
-var isNumber = U.isNumber, objectEach = U.objectEach;
+const { isNumber, objectEach } = U;
 /* eslint-disable no-invalid-this, valid-jsdoc */
+/* *
+ *
+ *  Class
+ *
+ * */
 /**
  * An animator object used internally. One instance applies to one property
  * (attribute or style prop) on one element. Animation is always initiated
  * through {@link SVGElement#animate}.
  *
  * @example
- * var rect = renderer.rect(0, 0, 10, 10).add();
+ * let rect = renderer.rect(0, 0, 10, 10).add();
  * rect.animate({ width: 100 });
  *
  * @private
  * @class
  * @name Highcharts.Fx
+ *
+ * @param {Highcharts.HTMLDOMElement|Highcharts.SVGElement} elem
+ * The element to animate.
+ *
+ * @param {Partial<Highcharts.AnimationOptionsObject>} options
+ * Animation options.
+ *
+ * @param {string} prop
+ * The single attribute or CSS property to animate.
  */
-var Fx = /** @class */ (function () {
+class Fx {
     /* *
      *
      *  Constructors
      *
      * */
-    /**
-     *
-     * @param {Highcharts.HTMLDOMElement|Highcharts.SVGElement} elem
-     *        The element to animate.
-     *
-     * @param {Partial<Highcharts.AnimationOptionsObject>} options
-     *        Animation options.
-     *
-     * @param {string} prop
-     *        The single attribute or CSS property to animate.
-     */
-    function Fx(elem, options, prop) {
+    constructor(elem, options, prop) {
         this.pos = NaN;
         this.options = options;
         this.elem = elem;
@@ -59,28 +64,28 @@ var Fx = /** @class */ (function () {
      *
      * @function Highcharts.Fx#dSetter
      *
-     * @return {void}
      */
-    Fx.prototype.dSetter = function () {
-        var paths = this.paths, start = paths && paths[0], end = paths && paths[1], path = [], now = this.now || 0;
+    dSetter() {
+        const paths = this.paths, start = paths && paths[0], end = paths && paths[1], now = this.now || 0;
+        let path = [];
         // Land on the final path without adjustment points appended in the ends
         if (now === 1 || !start || !end) {
             path = this.toD || [];
         }
         else if (start.length === end.length && now < 1) {
-            for (var i = 0; i < end.length; i++) {
+            for (let i = 0; i < end.length; i++) {
                 // Tween between the start segment and the end segment. Start
                 // with a copy of the end segment and tween the appropriate
                 // numerics
-                var startSeg = start[i];
-                var endSeg = end[i];
-                var tweenSeg = [];
-                for (var j = 0; j < endSeg.length; j++) {
-                    var startItem = startSeg[j];
-                    var endItem = endSeg[j];
+                const startSeg = start[i];
+                const endSeg = end[i];
+                const tweenSeg = [];
+                for (let j = 0; j < endSeg.length; j++) {
+                    const startItem = startSeg[j];
+                    const endItem = endSeg[j];
                     // Tween numbers
-                    if (typeof startItem === 'number' &&
-                        typeof endItem === 'number' &&
+                    if (isNumber(startItem) &&
+                        isNumber(endItem) &&
                         // Arc boolean flags
                         !(endSeg[0] === 'A' && (j === 4 || j === 5))) {
                         tweenSeg[j] = startItem + now * (endItem - startItem);
@@ -98,16 +103,15 @@ var Fx = /** @class */ (function () {
             path = end;
         }
         this.elem.attr('d', path, void 0, true);
-    };
+    }
     /**
      * Update the element with the current animation step.
      *
      * @function Highcharts.Fx#update
      *
-     * @return {void}
      */
-    Fx.prototype.update = function () {
-        var elem = this.elem, prop = this.prop, // if destroyed, it is null
+    update() {
+        const elem = this.elem, prop = this.prop, // If destroyed, it is null
         now = this.now, step = this.options.step;
         // Animation setter defined from outside
         if (this[prop + 'Setter']) {
@@ -126,7 +130,7 @@ var Fx = /** @class */ (function () {
         if (step) {
             step.call(elem, now, this);
         }
-    };
+    }
     /**
      * Run an animation.
      *
@@ -141,27 +145,27 @@ var Fx = /** @class */ (function () {
      * @param {string} unit
      *        The property unit, for example `px`.
      *
-     * @return {void}
      */
-    Fx.prototype.run = function (from, to, unit) {
-        var self = this, options = self.options, timer = function (gotoEnd) {
+    run(from, to, unit) {
+        const self = this, options = self.options, timer = function (gotoEnd) {
             return timer.stopped ? false : self.step(gotoEnd);
         }, requestAnimationFrame = win.requestAnimationFrame ||
             function (step) {
                 setTimeout(step, 13);
             }, step = function () {
-            for (var i = 0; i < H.timers.length; i++) {
-                if (!H.timers[i]()) {
-                    H.timers.splice(i--, 1);
+            for (let i = 0; i < Fx.timers.length; i++) {
+                if (!Fx.timers[i]()) {
+                    Fx.timers.splice(i--, 1);
                 }
             }
-            if (H.timers.length) {
+            if (Fx.timers.length) {
                 requestAnimationFrame(step);
             }
         };
         if (from === to && !this.elem['forceAnimate:' + this.prop]) {
             delete options.curAnim[this.prop];
-            if (options.complete && Object.keys(options.curAnim).length === 0) {
+            if (options.complete &&
+                Object.keys(options.curAnim).length === 0) {
                 options.complete.call(this.elem);
             }
         }
@@ -174,11 +178,11 @@ var Fx = /** @class */ (function () {
             this.pos = 0;
             timer.elem = this.elem;
             timer.prop = this.prop;
-            if (timer() && H.timers.push(timer) === 1) {
+            if (timer() && Fx.timers.push(timer) === 1) {
                 requestAnimationFrame(step);
             }
         }
-    };
+    }
     /**
      * Run a single step in the animation.
      *
@@ -190,9 +194,10 @@ var Fx = /** @class */ (function () {
      * @return {boolean}
      *         Returns `true` if animation continues.
      */
-    Fx.prototype.step = function (gotoEnd) {
-        var t = +new Date(), ret, done, options = this.options, elem = this.elem, complete = options.complete, duration = options.duration, curAnim = options.curAnim;
-        if (elem.attr && !elem.element) { // #2616, element is destroyed
+    step(gotoEnd) {
+        const t = +new Date(), options = this.options, elem = this.elem, complete = options.complete, duration = options.duration, curAnim = options.curAnim;
+        let ret, done;
+        if (!!elem.attr && !elem.element) { // #2616, element is destroyed
             ret = false;
         }
         else if (gotoEnd || t >= duration + this.startTime) {
@@ -213,12 +218,13 @@ var Fx = /** @class */ (function () {
         }
         else {
             this.pos = options.easing((t - this.startTime) / duration);
-            this.now = this.start + ((this.end - this.start) * this.pos);
+            this.now = this.start + ((this.end -
+                this.start) * this.pos);
             this.update();
             ret = true;
         }
         return ret;
-    };
+    }
     /**
      * Prepare start and end values so that the path can be animated one to one.
      *
@@ -237,24 +243,21 @@ var Fx = /** @class */ (function () {
      *         An array containing start and end paths in array form so that
      *         they can be animated in parallel.
      */
-    Fx.prototype.initPath = function (elem, fromD, toD) {
-        var shift, startX = elem.startX, endX = elem.endX, fullLength, i, start = fromD && fromD.slice(), // copy
-        end = toD.slice(), // copy
-        isArea = elem.isArea, positionFactor = isArea ? 2 : 1, reverse;
+    initPath(elem, fromD, toD) {
+        const startX = elem.startX, endX = elem.endX, end = toD.slice(), // Copy
+        isArea = elem.isArea, positionFactor = isArea ? 2 : 1;
+        let shift, fullLength, i, reverse, start = fromD && fromD.slice(); // Copy
         if (!start) {
             return [end, end];
         }
         /**
          * If shifting points, prepend a dummy point to the end path.
          * @private
-         * @param {Highcharts.SVGPathArray} arr - array
-         * @param {Highcharts.SVGPathArray} other - array
-         * @return {void}
          */
         function prepend(arr, other) {
             while (arr.length < fullLength) {
                 // Move to, line to or curve to?
-                var moveSegment = arr[0], otherSegment = other[fullLength - arr.length];
+                const moveSegment = arr[0], otherSegment = other[fullLength - arr.length];
                 if (otherSegment && moveSegment[0] === 'M') {
                     if (otherSegment[0] === 'C') {
                         arr[0] = [
@@ -276,18 +279,16 @@ var Fx = /** @class */ (function () {
                 // For areas, the bottom path goes back again to the left, so we
                 // need to append a copy of the last point.
                 if (isArea) {
-                    arr.push(arr[arr.length - 1]);
+                    const z = arr.pop();
+                    arr.push(arr[arr.length - 1], z); // Append point and the Z
                 }
             }
         }
         /**
          * Copy and append last point until the length matches the end length.
          * @private
-         * @param {Highcharts.SVGPathArray} arr - array
-         * @param {Highcharts.SVGPathArray} other - array
-         * @return {void}
          */
-        function append(arr, other) {
+        function append(arr) {
             while (arr.length < fullLength) {
                 // Pull out the slice that is going to be appended or inserted.
                 // In a line graph, the positionFactor is 1, and the last point
@@ -295,7 +296,7 @@ var Fx = /** @class */ (function () {
                 // causing the middle two points to be sliced out, since an area
                 // path starts at left, follows the upper path then turns and
                 // follows the bottom back.
-                var segmentToAdd = arr[arr.length / positionFactor - 1].slice();
+                const segmentToAdd = arr[Math.floor(arr.length / positionFactor) - 1].slice();
                 // Disable the first control point of curve segments
                 if (segmentToAdd[0] === 'C') {
                     segmentToAdd[1] = segmentToAdd[5];
@@ -305,14 +306,14 @@ var Fx = /** @class */ (function () {
                     arr.push(segmentToAdd);
                 }
                 else {
-                    var lowerSegmentToAdd = arr[arr.length / positionFactor].slice();
+                    const lowerSegmentToAdd = arr[Math.floor(arr.length / positionFactor)].slice();
                     arr.splice(arr.length / 2, 0, segmentToAdd, lowerSegmentToAdd);
                 }
             }
         }
         // For sideways animation, find out how much we need to shift to get the
         // start path Xs to match the end path Xs.
-        if (startX && endX) {
+        if (startX && endX && endX.length) {
             for (i = 0; i < startX.length; i++) {
                 // Moving left, new points coming in on right
                 if (startX[i] === endX[0]) {
@@ -343,36 +344,43 @@ var Fx = /** @class */ (function () {
             fullLength = end.length + shift * positionFactor;
             if (!reverse) {
                 prepend(end, start);
-                append(start, end);
+                append(start);
             }
             else {
                 prepend(start, end);
-                append(end, start);
+                append(end);
             }
         }
         return [start, end];
-    };
+    }
     /**
      * Handle animation of the color attributes directly.
      *
      * @function Highcharts.Fx#fillSetter
      *
-     * @return {void}
      */
-    Fx.prototype.fillSetter = function () {
+    fillSetter() {
         Fx.prototype.strokeSetter.apply(this, arguments);
-    };
+    }
     /**
      * Handle animation of the color attributes directly.
      *
      * @function Highcharts.Fx#strokeSetter
      *
-     * @return {void}
      */
-    Fx.prototype.strokeSetter = function () {
-        this.elem.attr(this.prop, H.color(this.start).tweenTo(H.color(this.end), this.pos), null, true);
-    };
-    return Fx;
-}());
-H.Fx = Fx;
+    strokeSetter() {
+        this.elem.attr(this.prop, color(this.start).tweenTo(color(this.end), this.pos), void 0, true);
+    }
+}
+/* *
+ *
+ *  Static Properties
+ *
+ * */
+Fx.timers = [];
+/* *
+ *
+ *  Default Export
+ *
+ * */
 export default Fx;

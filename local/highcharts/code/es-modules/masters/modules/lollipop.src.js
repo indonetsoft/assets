@@ -1,11 +1,13 @@
 /**
- * @license Highcharts JS v8.2.2 (2020-10-22)
+ * @license Highcharts JS v11.4.3 (2024-05-22)
  * @module highcharts/modules/lollipop
  * @requires highcharts
  *
- * (c) 2009-2019 Sebastian Bochan, Rafal Sebestjanski
+ * (c) 2009-2024 Sebastian Bochan, Rafal Sebestjanski
  *
  * License: www.highcharts.com/license
  */
 'use strict';
-import '../../Series/LollipopSeries.js';
+import Highcharts from '../../Core/Globals.js';
+import '../../Series/Lollipop/LollipopSeries.js';
+export default Highcharts;

@@ -1,13 +1,17 @@
 /**
- * @license Highcharts Gantt JS v8.2.2 (2020-10-22)
+ * @license Highcharts Gantt JS v11.4.3 (2024-05-22)
  * @module highcharts/modules/static-scale
  * @requires highcharts
  *
  * StaticScale
  *
- * (c) 2016-2019 Torstein Honsi, Lars A. V. Cabrera
+ * (c) 2016-2024 Torstein Honsi, Lars A. V. Cabrera
  *
  * License: www.highcharts.com/license
  */
 'use strict';
-import '../../Extensions/StaticScale.js';
+import Highcharts from '../../Core/Globals.js';
+import StaticScale from '../../Extensions/StaticScale.js';
+const G = Highcharts;
+StaticScale.compose(G.Axis, G.Chart);
+export default Highcharts;

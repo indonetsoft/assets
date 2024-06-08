@@ -1,220 +1,394 @@
 /* *
  *
- *  (c) 2010-2020 Torstein Honsi
+ *  (c) 2010-2024 Torstein Honsi
  *
  *  License: www.highcharts.com/license
  *
  *  !!!!!!! SOURCE GETS TRANSPILED BY TYPESCRIPT. EDIT TS FILE ONLY. !!!!!!!
  *
  * */
+'use strict';
+import AST from './AST.js';
 import H from '../../Globals.js';
+const { composed } = H;
 import SVGElement from '../SVG/SVGElement.js';
 import U from '../../Utilities.js';
-var css = U.css, defined = U.defined, extend = U.extend, pick = U.pick, pInt = U.pInt;
+const { attr, css, createElement, defined, extend, pInt, pushUnique } = U;
 /**
- * Element placebo
+ * The opacity and visibility properties are set as attributes on the main
+ * element and SVG groups, and as identical CSS properties on the HTML element
+ * and the ancestry divs. (#3542)
+ *
  * @private
  */
-var HTMLElement = SVGElement;
-var isFirefox = H.isFirefox;
-/* eslint-disable valid-jsdoc */
-// Extend SvgElement for useHTML option.
-extend(HTMLElement.prototype, /** @lends SVGElement.prototype */ {
+function commonSetter(value, key, elem) {
+    const style = this.div?.style || elem.style;
+    SVGElement.prototype[`${key}Setter`].call(this, value, key, elem);
+    if (style) {
+        style[key] = value;
+    }
+}
+/**
+ * Decorate each SVG group in the ancestry line. Each SVG `g` element that
+ * contains children with useHTML, will receive a `div` element counterpart to
+ * contain the HTML span. These div elements are translated and styled like
+ * original `g` counterparts.
+ *
+ * @private
+ */
+const decorateSVGGroup = (g, container) => {
+    if (!g.div) {
+        const className = attr(g.element, 'class'), cssProto = g.css;
+        // Create the parallel HTML group
+        const div = createElement('div', className ? { className } : void 0, {
+            // Add HTML specific styles
+            position: 'absolute',
+            left: `${g.translateX || 0}px`,
+            top: `${g.translateY || 0}px`,
+            // Add pre-existing styles
+            ...g.styles,
+            // Add g attributes that correspond to CSS
+            display: g.display,
+            opacity: g.opacity,
+            visibility: g.visibility
+        }, 
+        // The top group is appended to container
+        g.parentGroup?.div || container);
+        g.classSetter = (value, key, element) => {
+            element.setAttribute('class', value);
+            div.className = value;
+        };
+        /**
+         * Common translate setter for X and Y on the HTML group.
+         *
+         * Reverted the fix for #6957 due to positioning problems and offline
+         * export (#7254, #7280, #7529)
+         * @private
+         */
+        g.translateXSetter = g.translateYSetter = (value, key) => {
+            g[key] = value;
+            div.style[key === 'translateX' ? 'left' : 'top'] = `${value}px`;
+            g.doTransform = true;
+        };
+        g.opacitySetter = g.visibilitySetter = commonSetter;
+        // Extend the parent group's css function by updating the parallel div
+        // counterpart with the same style.
+        g.css = (styles) => {
+            // Call the base css method. The `parentGroup` can be either an
+            // SVGElement or an SVGLabel, in which the css method is extended
+            // (#19200).
+            cssProto.call(g, styles);
+            // #6794
+            if (styles.cursor) {
+                div.style.cursor = styles.cursor;
+            }
+            // #18821
+            if (styles.pointerEvents) {
+                div.style.pointerEvents = styles.pointerEvents;
+            }
+            return g;
+        };
+        // Event handling
+        g.on = function () {
+            SVGElement.prototype.on.apply({
+                element: div,
+                onEvents: g.onEvents
+            }, arguments);
+            return g;
+        };
+        g.div = div;
+    }
+    return g.div;
+};
+/* *
+ *
+ *  Class
+ *
+ * */
+class HTMLElement extends SVGElement {
+    /* *
+     *
+     *  Static Functions
+     *
+     * */
     /**
-     * Apply CSS to HTML elements. This is used in text within SVG rendering and
-     * by the VML renderer
-     *
+     * Compose
      * @private
-     * @function Highcharts.SVGElement#htmlCss
-     *
-     * @param {Highcharts.CSSObject} styles
-     *
-     * @return {Highcharts.SVGElement}
      */
-    htmlCss: function (styles) {
-        var wrapper = this, element = wrapper.element, 
+    static compose(SVGRendererClass) {
+        if (pushUnique(composed, this.compose)) {
+            /**
+             * Create a HTML text node. This is used by the SVG renderer `text`
+             * and `label` functions through the `useHTML` parameter.
+             *
+             * @private
+             */
+            SVGRendererClass.prototype.html = function (str, x, y) {
+                return new HTMLElement(this, 'span')
+                    // Set the default attributes
+                    .attr({
+                    text: str,
+                    x: Math.round(x),
+                    y: Math.round(y)
+                });
+            };
+        }
+    }
+    /* *
+     *
+     *  Functions
+     *
+     * */
+    constructor(renderer, nodeName) {
+        super(renderer, nodeName);
+        this.css({
+            position: 'absolute',
+            ...(renderer.styledMode ? {} : {
+                fontFamily: renderer.style.fontFamily,
+                fontSize: renderer.style.fontSize
+            })
+        });
+        // Keep the whiteSpace style outside the `HTMLElement.styles` collection
+        this.element.style.whiteSpace = 'nowrap';
+    }
+    /**
+     * Get the correction in X and Y positioning as the element is rotated.
+     * @private
+     */
+    getSpanCorrection(width, baseline, alignCorrection) {
+        this.xCorr = -width * alignCorrection;
+        this.yCorr = -baseline;
+    }
+    /**
+     * Apply CSS to HTML elements. This is used in text within SVG rendering.
+     * @private
+     */
+    css(styles) {
+        const { element } = this, 
         // When setting or unsetting the width style, we need to update
         // transform (#8809)
         isSettingWidth = (element.tagName === 'SPAN' &&
             styles &&
-            'width' in styles), textWidth = pick(isSettingWidth && styles.width, void 0), doTransform;
+            'width' in styles), textWidth = isSettingWidth && styles.width;
+        let doTransform;
         if (isSettingWidth) {
             delete styles.width;
-            wrapper.textWidth = textWidth;
+            this.textWidth = pInt(textWidth) || void 0;
             doTransform = true;
         }
-        if (styles && styles.textOverflow === 'ellipsis') {
+        if (styles?.textOverflow === 'ellipsis') {
             styles.whiteSpace = 'nowrap';
             styles.overflow = 'hidden';
         }
-        wrapper.styles = extend(wrapper.styles, styles);
-        css(wrapper.element, styles);
+        extend(this.styles, styles);
+        css(element, styles);
         // Now that all styles are applied, to the transform
         if (doTransform) {
-            wrapper.htmlUpdateTransform();
+            this.updateTransform();
         }
-        return wrapper;
-    },
+        return this;
+    }
     /**
-     * VML and useHTML method for calculating the bounding box based on offsets.
+     * The useHTML method for calculating the bounding box based on offsets.
+     * Called internally from the `SVGElement.getBBox` function and subsequently
+     * rotated.
      *
      * @private
-     * @function Highcharts.SVGElement#htmlGetBBox
-     *
-     * @param {boolean} refresh
-     *        Whether to force a fresh value from the DOM or to use the cached
-     *        value.
-     *
-     * @return {Highcharts.BBoxObject}
-     *         A hash containing values for x, y, width and height.
      */
-    htmlGetBBox: function () {
-        var wrapper = this, element = wrapper.element;
+    htmlGetBBox() {
+        const { element } = this;
         return {
             x: element.offsetLeft,
             y: element.offsetTop,
             width: element.offsetWidth,
             height: element.offsetHeight
         };
-    },
+    }
     /**
-     * VML override private method to update elements based on internal
-     * properties based on SVG transform.
+     * Batch update styles and attributes related to transform
      *
      * @private
-     * @function Highcharts.SVGElement#htmlUpdateTransform
-     * @return {void}
      */
-    htmlUpdateTransform: function () {
-        // aligning non added elements is expensive
+    updateTransform() {
+        // Aligning non added elements is expensive
         if (!this.added) {
             this.alignOnAdd = true;
             return;
         }
-        var wrapper = this, renderer = wrapper.renderer, elem = wrapper.element, translateX = wrapper.translateX || 0, translateY = wrapper.translateY || 0, x = wrapper.x || 0, y = wrapper.y || 0, align = wrapper.textAlign || 'left', alignCorrection = {
+        const { element, renderer, rotation, rotationOriginX, rotationOriginY, styles, textAlign = 'left', textWidth, translateX = 0, translateY = 0, x = 0, y = 0 } = this, alignCorrection = {
             left: 0, center: 0.5, right: 1
-        }[align], styles = wrapper.styles, whiteSpace = styles && styles.whiteSpace;
-        /**
-         * @private
-         * @return {number}
-         */
-        function getTextPxLength() {
+        }[textAlign], whiteSpace = styles.whiteSpace;
+        // Get the pixel length of the text
+        const getTextPxLength = () => {
+            if (this.textPxLength) {
+                return this.textPxLength;
+            }
             // Reset multiline/ellipsis in order to read width (#4928,
             // #5417)
-            css(elem, {
+            css(element, {
                 width: '',
                 whiteSpace: whiteSpace || 'nowrap'
             });
-            return elem.offsetWidth;
-        }
-        // apply translate
-        css(elem, {
-            marginLeft: translateX,
-            marginTop: translateY
+            return element.offsetWidth;
+        };
+        // Apply translate
+        css(element, {
+            marginLeft: `${translateX}px`,
+            marginTop: `${translateY}px`
         });
-        if (!renderer.styledMode && wrapper.shadows) { // used in labels/tooltip
-            wrapper.shadows.forEach(function (shadow) {
-                css(shadow, {
-                    marginLeft: translateX + 1,
-                    marginTop: translateY + 1
-                });
-            });
-        }
-        // apply inversion
-        if (wrapper.inverted) { // wrapper is a group
-            [].forEach.call(elem.childNodes, function (child) {
-                renderer.invertChild(child, elem);
-            });
-        }
-        if (elem.tagName === 'SPAN') {
-            var rotation = wrapper.rotation, baseline, textWidth = wrapper.textWidth && pInt(wrapper.textWidth), currentTextTransform = [
+        if (element.tagName === 'SPAN') {
+            const currentTextTransform = [
                 rotation,
-                align,
-                elem.innerHTML,
-                wrapper.textWidth,
-                wrapper.textAlign
-            ].join(',');
+                textAlign,
+                element.innerHTML,
+                textWidth,
+                this.textAlign
+            ].join(','), parentPadding = (this.parentGroup?.padding * -1) || 0;
+            let baseline, hasBoxWidthChanged = false;
             // Update textWidth. Use the memoized textPxLength if possible, to
             // avoid the getTextPxLength function using elem.offsetWidth.
             // Calling offsetWidth affects rendering time as it forces layout
             // (#7656).
-            if (textWidth !== wrapper.oldTextWidth &&
-                ((textWidth > wrapper.oldTextWidth) ||
-                    (wrapper.textPxLength || getTextPxLength()) > textWidth) && (
-            // Only set the width if the text is able to word-wrap, or
-            // text-overflow is ellipsis (#9537)
-            /[ \-]/.test(elem.textContent || elem.innerText) ||
-                elem.style.textOverflow === 'ellipsis')) { // #983, #1254
-                css(elem, {
-                    width: textWidth + 'px',
-                    display: 'block',
-                    whiteSpace: whiteSpace || 'normal' // #3331
-                });
-                wrapper.oldTextWidth = textWidth;
-                wrapper.hasBoxWidthChanged = true; // #8159
+            if (textWidth !== this.oldTextWidth) { // #983, #1254
+                const textPxLength = getTextPxLength(), textWidthNum = textWidth || 0;
+                if (((textWidthNum > this.oldTextWidth) ||
+                    textPxLength > textWidthNum) && (
+                // Only set the width if the text is able to word-wrap,
+                // or text-overflow is ellipsis (#9537)
+                /[ \-]/.test(element.textContent || element.innerText) ||
+                    element.style.textOverflow === 'ellipsis')) {
+                    css(element, {
+                        width: (textPxLength > textWidthNum) || rotation ?
+                            textWidth + 'px' :
+                            'auto',
+                        display: 'block',
+                        whiteSpace: whiteSpace || 'normal' // #3331
+                    });
+                    this.oldTextWidth = textWidth;
+                    hasBoxWidthChanged = true; // #8159
+                }
             }
-            else {
-                wrapper.hasBoxWidthChanged = false; // #8159
-            }
+            this.hasBoxWidthChanged = hasBoxWidthChanged; // #8159
             // Do the calculations and DOM access only if properties changed
-            if (currentTextTransform !== wrapper.cTT) {
-                baseline = renderer.fontMetrics(elem.style.fontSize, elem).b;
+            if (currentTextTransform !== this.cTT) {
+                baseline = renderer.fontMetrics(element).b;
                 // Renderer specific handling of span rotation, but only if we
                 // have something to update.
                 if (defined(rotation) &&
-                    ((rotation !== (wrapper.oldRotation || 0)) ||
-                        (align !== wrapper.oldAlign))) {
-                    wrapper.setSpanRotation(rotation, alignCorrection, baseline);
+                    ((rotation !== (this.oldRotation || 0)) ||
+                        (textAlign !== this.oldAlign))) {
+                    this.setSpanRotation(rotation, parentPadding, parentPadding);
                 }
-                wrapper.getSpanCorrection(
+                this.getSpanCorrection(
                 // Avoid elem.offsetWidth if we can, it affects rendering
                 // time heavily (#7656)
-                ((!defined(rotation) && wrapper.textPxLength) || // #7920
-                    elem.offsetWidth), baseline, alignCorrection, rotation, align);
+                ((!defined(rotation) && this.textPxLength) || // #7920
+                    element.offsetWidth), baseline, alignCorrection);
             }
-            // apply position with correction
-            css(elem, {
-                left: (x + (wrapper.xCorr || 0)) + 'px',
-                top: (y + (wrapper.yCorr || 0)) + 'px'
-            });
-            // record current text transform
-            wrapper.cTT = currentTextTransform;
-            wrapper.oldRotation = rotation;
-            wrapper.oldAlign = align;
+            // Apply position with correction and rotation origin
+            const { xCorr = 0, yCorr = 0 } = this, rotOriginX = (rotationOriginX ?? x) - xCorr - x - parentPadding, rotOriginY = (rotationOriginY ?? y) - yCorr - y - parentPadding, styles = {
+                left: `${x + xCorr}px`,
+                top: `${y + yCorr}px`,
+                transformOrigin: `${rotOriginX}px ${rotOriginY}px`
+            };
+            css(element, styles);
+            // Record current text transform
+            this.cTT = currentTextTransform;
+            this.oldRotation = rotation;
+            this.oldAlign = textAlign;
         }
-    },
+    }
     /**
      * Set the rotation of an individual HTML span.
-     *
      * @private
-     * @function Highcharts.SVGElement#setSpanRotation
-     * @param {number} rotation
-     * @param {number} alignCorrection
-     * @param {number} baseline
-     * @return {void}
      */
-    setSpanRotation: function (rotation, alignCorrection, baseline) {
-        var rotationStyle = {}, cssTransformKey = this.renderer.getTransformKey();
-        rotationStyle[cssTransformKey] = rotationStyle.transform =
-            'rotate(' + rotation + 'deg)';
-        rotationStyle[cssTransformKey + (isFirefox ? 'Origin' : '-origin')] =
-            rotationStyle.transformOrigin =
-                (alignCorrection * 100) + '% ' + baseline + 'px';
-        css(this.element, rotationStyle);
-    },
-    /**
-     * Get the correction in X and Y positioning as the element is rotated.
-     *
-     * @private
-     * @function Highcharts.SVGElement#getSpanCorrection
-     * @param {number} width
-     * @param {number} baseline
-     * @param {number} alignCorrection
-     * @return {void}
-     */
-    getSpanCorrection: function (width, baseline, alignCorrection) {
-        this.xCorr = -width * alignCorrection;
-        this.yCorr = -baseline;
+    setSpanRotation(rotation, originX, originY) {
+        // CSS transform and transform-origin both supported without prefix
+        // since Firefox 16 (2012), IE 10 (2012), Chrome 36 (2014), Safari 9
+        // (2015).;
+        css(this.element, {
+            transform: `rotate(${rotation}deg)`,
+            transformOrigin: `${originX}% ${originY}px`
+        });
     }
-});
+    /**
+     * Add the element to a group wrapper. For HTML elements, a parallel div
+     * will be created for each ancenstor SVG `g` element.
+     *
+     * @private
+     */
+    add(parentGroup) {
+        const container = this.renderer.box
+            .parentNode, parents = [];
+        let div;
+        this.parentGroup = parentGroup;
+        // Create a parallel divs to hold the HTML elements
+        if (parentGroup) {
+            div = parentGroup.div;
+            if (!div) {
+                // Read the parent chain into an array and read from top
+                // down
+                let svgGroup = parentGroup;
+                while (svgGroup) {
+                    parents.push(svgGroup);
+                    // Move up to the next parent group
+                    svgGroup = svgGroup.parentGroup;
+                }
+                // Decorate each of the ancestor group elements with a parallel
+                // div that reflects translation and styling
+                for (const parentGroup of parents.reverse()) {
+                    div = decorateSVGGroup(parentGroup, container);
+                }
+            }
+        }
+        (div || container).appendChild(this.element);
+        this.added = true;
+        if (this.alignOnAdd) {
+            this.updateTransform();
+        }
+        return this;
+    }
+    /**
+     * Text setter
+     * @private
+     */
+    textSetter(value) {
+        if (value !== this.textStr) {
+            delete this.bBox;
+            delete this.oldTextWidth;
+            AST.setElementHTML(this.element, value ?? '');
+            this.textStr = value;
+            this.doTransform = true;
+        }
+    }
+    /**
+     * Align setter
+     *
+     * @private
+     */
+    alignSetter(value) {
+        this.alignValue = this.textAlign = value;
+        this.doTransform = true;
+    }
+    /**
+     * Various setters which rely on update transform
+     * @private
+     */
+    xSetter(value, key) {
+        this[key] = value;
+        this.doTransform = true;
+    }
+}
+// Some shared setters
+const proto = HTMLElement.prototype;
+proto.visibilitySetter = proto.opacitySetter = commonSetter;
+proto.ySetter =
+    proto.rotationSetter =
+        proto.rotationOriginXSetter =
+            proto.rotationOriginYSetter = proto.xSetter;
+/* *
+ *
+ *  Default Export
+ *
+ * */
 export default HTMLElement;

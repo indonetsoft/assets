@@ -1,6 +1,6 @@
 /* *
  *
- *  (c) 2010-2020 Torstein Honsi
+ *  (c) 2010-2024 Torstein Honsi
  *
  *  License: www.highcharts.com/license
  *
@@ -9,9 +9,13 @@
  * */
 'use strict';
 import Fx from './Fx.js';
-import H from '../Globals.js';
 import U from '../Utilities.js';
-var defined = U.defined, getStyle = U.getStyle, isArray = U.isArray, isNumber = U.isNumber, isObject = U.isObject, merge = U.merge, objectEach = U.objectEach, pick = U.pick;
+const { defined, getStyle, isArray, isNumber, isObject, merge, objectEach, pick } = U;
+/* *
+ *
+ *  Functions
+ *
+ * */
 /**
  * Set the global animation to either a given value, or fall back to the given
  * chart's animation option.
@@ -28,9 +32,9 @@ var defined = U.defined, getStyle = U.getStyle, isArray = U.isArray, isNumber = 
  * This function always relates to a chart, and sets a property on the renderer,
  * so it should be moved to the SVGRenderer.
  */
-var setAnimation = H.setAnimation = function setAnimation(animation, chart) {
+function setAnimation(animation, chart) {
     chart.renderer.globalAnimation = pick(animation, chart.options.chart.animation, true);
-};
+}
 /**
  * Get the animation in object form, where a disabled animation is always
  * returned as `{ duration: 0 }`.
@@ -44,11 +48,11 @@ var setAnimation = H.setAnimation = function setAnimation(animation, chart) {
  * @return {Highcharts.AnimationOptionsObject}
  *         An object with at least a duration property.
  */
-var animObject = H.animObject = function animObject(animation) {
+function animObject(animation) {
     return isObject(animation) ?
-        H.merge({ duration: 500, defer: 0 }, animation) :
+        merge({ duration: 500, defer: 0 }, animation) :
         { duration: animation ? 500 : 0, defer: 0 };
-};
+}
 /**
  * Get the defer as a number value from series animation options.
  *
@@ -67,14 +71,12 @@ var animObject = H.animObject = function animObject(animation) {
  * @return {number}
  *        The numeric value.
  */
-var getDeferredAnimation = H.getDeferredAnimation = function (chart, animation, series) {
-    var labelAnimation = animObject(animation);
-    var s = series ? [series] : chart.series;
-    var defer = 0;
-    var duration = 0;
-    s.forEach(function (series) {
-        var seriesAnim = animObject(series.options.animation);
-        defer = animation && defined(animation.defer) ?
+function getDeferredAnimation(chart, animation, series) {
+    const labelAnimation = animObject(animation), s = series ? [series] : chart.series;
+    let defer = 0, duration = 0;
+    s.forEach((series) => {
+        const seriesAnim = animObject(series.options.animation);
+        defer = isObject(animation) && defined(animation.defer) ?
             labelAnimation.defer :
             Math.max(defer, seriesAnim.duration + seriesAnim.defer);
         duration = Math.min(labelAnimation.duration, seriesAnim.duration);
@@ -83,12 +85,12 @@ var getDeferredAnimation = H.getDeferredAnimation = function (chart, animation, 
     if (chart.renderer.forExport) {
         defer = 0;
     }
-    var anim = {
+    const anim = {
         defer: Math.max(0, defer - duration),
         duration: Math.min(defer, duration)
     };
     return anim;
-};
+}
 /**
  * The global animate method, which uses Fx to create individual animators.
  *
@@ -107,8 +109,8 @@ var getDeferredAnimation = H.getDeferredAnimation = function (chart, animation, 
  *
  * @return {void}
  */
-var animate = H.animate = function (el, params, opt) {
-    var start, unit = '', end, fx, args;
+function animate(el, params, opt) {
+    let start, unit = '', end, fx, args;
     if (!isObject(opt)) { // Number or undefined/null
         args = arguments;
         opt = {
@@ -128,7 +130,7 @@ var animate = H.animate = function (el, params, opt) {
         // Stop current running animation of this property
         stop(el, prop);
         fx = new Fx(el, opt, prop);
-        end = null;
+        end = void 0;
         if (prop === 'd' && isArray(params.d)) {
             fx.paths = fx.initPath(el, el.pathArray, params.d);
             fx.toD = params.d;
@@ -147,12 +149,12 @@ var animate = H.animate = function (el, params, opt) {
         if (!end) {
             end = val;
         }
-        if (end && end.match && end.match('px')) {
+        if (typeof end === 'string' && end.match('px')) {
             end = end.replace(/px/g, ''); // #4351
         }
         fx.run(start, end, unit);
     });
-};
+}
 /**
  * Stop running animation.
  *
@@ -174,20 +176,25 @@ var animate = H.animate = function (el, params, opt) {
  * improvement in all cases where we stop the animation from .attr. Instead of
  * stopping everything, we can just stop the actual attributes we're setting.
  */
-var stop = H.stop = function (el, prop) {
-    var i = H.timers.length;
+function stop(el, prop) {
+    let i = Fx.timers.length;
     // Remove timers related to this element (#4519)
     while (i--) {
-        if (H.timers[i].elem === el && (!prop || prop === H.timers[i].prop)) {
-            H.timers[i].stopped = true; // #4667
+        if (Fx.timers[i].elem === el && (!prop || prop === Fx.timers[i].prop)) {
+            Fx.timers[i].stopped = true; // #4667
         }
     }
+}
+const animationExports = {
+    animate,
+    animObject,
+    getDeferredAnimation,
+    setAnimation,
+    stop
 };
-var animationExports = {
-    animate: animate,
-    animObject: animObject,
-    getDeferredAnimation: getDeferredAnimation,
-    setAnimation: setAnimation,
-    stop: stop
-};
+/* *
+ *
+ *  Default Export
+ *
+ * */
 export default animationExports;

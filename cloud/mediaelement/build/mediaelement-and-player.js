@@ -1116,7 +1116,7 @@ function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { de
 
 var mejs = {};
 
-mejs.version = '7.0.0';
+mejs.version = '7.0.5';
 
 mejs.html5media = {
 	properties: ['volume', 'src', 'currentTime', 'muted', 'duration', 'paused', 'ended', 'buffered', 'error', 'networkState', 'readyState', 'seeking', 'seekable', 'currentSrc', 'preload', 'bufferedBytes', 'bufferedTime', 'initialTime', 'startOffsetTime', 'defaultPlaybackRate', 'playbackRate', 'played', 'autoplay', 'loop', 'controls'],
@@ -2436,13 +2436,13 @@ Object.assign(_player2.default.prototype, {
         outEvents = ['mouseleave', 'focusout'];
 
     if (t.options.toggleCaptionsButtonWhenOnlyOne && subtitles.length === 1) {
-      player.captionsButton.addEventListener('click', function (e) {
+      player.captionsButton.classList.add(t.options.classPrefix + 'captions-button-toggle');
+      player.captionsButton.addEventListener('click', function () {
         var trackId = 'none';
         if (player.selectedTrack === null) {
           trackId = player.getSubtitles()[0].trackId;
         }
-        var keyboard = e.keyCode || e.which;
-        player.setTrack(trackId, typeof keyboard !== 'undefined');
+        player.setTrack(trackId);
       });
     } else {
       var labels = player.captionsButton.querySelectorAll('.' + t.options.classPrefix + 'captions-selector-label'),
@@ -2466,9 +2466,8 @@ Object.assign(_player2.default.prototype, {
 
       for (var _i3 = 0; _i3 < captions.length; _i3++) {
         captions[_i3].addEventListener('click', function (e) {
-          var keyboard = e.keyCode || e.which;
           if (!e.target.disabled) {
-            player.setTrack(this.value, typeof keyboard !== 'undefined');
+            player.setTrack(this.value);
           }
         });
       }
@@ -2590,7 +2589,7 @@ Object.assign(_player2.default.prototype, {
     }
   },
   handleCaptionsLoaded: function handleCaptionsLoaded(target) {
-    var textTracks = this.domNode.textTracks,
+    var textTracks = this.node.textTracks,
         playerTrack = this.getTrackById(target.getAttribute('id'));
 
     if (Number.isInteger(this.options.defaultTrackLine)) {
@@ -2675,7 +2674,7 @@ Object.assign(_player2.default.prototype, {
       }
     }
   },
-  setTrack: function setTrack(trackId, setByKeyboard) {
+  setTrack: function setTrack(trackId) {
     var t = this,
         radios = t.captionsButton.querySelectorAll('input[type="radio"]'),
         captions = t.captionsButton.querySelectorAll('.' + t.options.classPrefix + 'captions-selected'),
@@ -2715,37 +2714,37 @@ Object.assign(_player2.default.prototype, {
     var event = (0, _general.createEvent)('captionschange', t.media);
     event.detail.caption = t.selectedTrack;
     t.media.dispatchEvent(event);
-
-    if (!setByKeyboard) {
-      setTimeout(function () {
-        t.getElement(t.container).focus();
-      }, 500);
-    }
   },
   hideAllTracks: function hideAllTracks() {
-    if (this.domNode.textTracks) {
-      for (var i = 0; i < this.domNode.textTracks.length; i++) {
-        this.domNode.textTracks[i].mode = 'hidden';
+    if (this.node.textTracks) {
+      for (var i = 0; i < this.node.textTracks.length; i++) {
+        this.node.textTracks[i].mode = 'hidden';
       }
     }
   },
   deactivateVideoTracks: function deactivateVideoTracks() {
-    if (this.domNode.textTracks) {
-      for (var i = 0; i < this.domNode.textTracks.length; i++) {
-        var track = this.domNode.textTracks[i];
+    if (this.node.textTracks) {
+      for (var i = 0; i < this.node.textTracks.length; i++) {
+        var track = this.node.textTracks[i];
         if (track.kind === 'subtitles' || track.kind === 'captions') {
           track.mode = 'hidden';
         }
       }
     }
+    if (this.options.toggleCaptionsButtonWhenOnlyOne && this.getSubtitles().length === 1) {
+      this.captionsButton.classList.remove(this.options.classPrefix + 'captions-button-toggle-on');
+    }
   },
   activateVideoTrack: function activateVideoTrack(srclang) {
-    for (var i = 0; i < this.domNode.textTracks.length; i++) {
-      var track = this.domNode.textTracks[i];
+    for (var i = 0; i < this.node.textTracks.length; i++) {
+      var track = this.node.textTracks[i];
 
       if (track.kind === 'subtitles' || track.kind === 'captions') {
         if (track.language === srclang) {
           track.mode = 'showing';
+          if (this.options.toggleCaptionsButtonWhenOnlyOne && this.getSubtitles().length === 1) {
+            this.captionsButton.classList.add(this.options.classPrefix + 'captions-button-toggle-on');
+          }
         } else {
           track.mode = 'hidden';
         }
@@ -2827,7 +2826,7 @@ Object.assign(_player2.default.prototype, {
   },
   drawChapters: function drawChapters(chapterTrackId) {
     var t = this,
-        chapter = this.domNode.textTracks.getTrackById(chapterTrackId),
+        chapter = this.node.textTracks.getTrackById(chapterTrackId),
         numberOfChapters = chapter.cues.length;
 
     if (!numberOfChapters) {
@@ -3703,6 +3702,8 @@ var MediaElementPlayer = function () {
 			t.mediaFiles = null;
 			t.trackFiles = null;
 
+			t.media.addEventListener('rendererready', this.updateNode.bind(this));
+
 			if (_constants.IS_IPAD && t.options.iPadUseNativeControls || _constants.IS_IPHONE && t.options.iPhoneUseNativeControls) {
 				t.node.setAttribute('controls', true);
 
@@ -3815,14 +3816,28 @@ var MediaElementPlayer = function () {
 				var event = (0, _general.createEvent)('controlsshown', t.getElement(t.container));
 				t.getElement(t.container).dispatchEvent(event);
 			}
-
-			t.media.addEventListener('rendererready', this.updateNode.bind(this));
 		}
 	}, {
 		key: 'updateNode',
 		value: function updateNode(event) {
-			this.domNode = event.detail.target;
-			this.node = event.detail.target;
+			var node = void 0,
+			    iframeId = void 0;
+			var mediaElement = event.detail.target.hasOwnProperty('mediaElement') ? event.detail.target.mediaElement : event.detail.target;
+			var originalNode = mediaElement.originalNode;
+
+			if (event.detail.isIframe) {
+				iframeId = mediaElement.renderer.id;
+				node = mediaElement.querySelector('#' + iframeId);
+				node.style.position = 'absolute';
+
+				if (originalNode.style.maxWidth) {
+					node.style.maxWidth = originalNode.style.maxWidth;
+				}
+			} else {
+				node = event.detail.target;
+			}
+			this.domNode = node;
+			this.node = node;
 		}
 	}, {
 		key: 'showControls',
@@ -4445,7 +4460,9 @@ var MediaElementPlayer = function () {
 			    parentWidth = parseFloat(parentStyles.width);
 
 			if (t.isVideo) {
-				if (t.height === '100%') {
+				if (t.height === '100%' && t.width === '100%') {
+					newHeight = parentHeight;
+				} else if (t.height === '100%') {
 					newHeight = parseFloat(parentWidth * nativeHeight / nativeWidth, 10);
 				} else {
 					newHeight = t.height >= t.width ? parseFloat(parentWidth / aspectRatio, 10) : parseFloat(parentWidth * aspectRatio, 10);
@@ -4563,8 +4580,8 @@ var MediaElementPlayer = function () {
 			}
 
 			var targetElement = t.getElement(t.container).querySelectorAll('object, embed, iframe, video'),
-			    initHeight = t.height,
-			    initWidth = t.width,
+			    initHeight = parseFloat(t.height, 10),
+			    initWidth = parseFloat(t.width, 10),
 			    scaleX1 = parentWidth,
 			    scaleY1 = initHeight * parentWidth / initWidth,
 			    scaleX2 = initWidth * parentHeight / initHeight,
@@ -5741,8 +5758,8 @@ var DashNativeRenderer = {
 			}
 		};
 
-		var event = (0, _general.createEvent)('rendererready', node);
-		mediaElement.dispatchEvent(event);
+		var event = (0, _general.createEvent)('rendererready', node, false);
+		mediaElement.originalNode.dispatchEvent(event);
 
 		mediaElement.promises.push(NativeDash.load({
 			options: options.dash,
@@ -6030,8 +6047,8 @@ var HlsNativeRenderer = {
 			}
 		};
 
-		var event = (0, _general.createEvent)('rendererready', node);
-		mediaElement.dispatchEvent(event);
+		var event = (0, _general.createEvent)('rendererready', node, false);
+		mediaElement.originalNode.dispatchEvent(event);
 
 		mediaElement.promises.push(NativeHls.load({
 			options: options.hls,
@@ -6184,8 +6201,8 @@ var HtmlMediaElement = {
 			}
 		});
 
-		var event = (0, _general.createEvent)('rendererready', node);
-		mediaElement.dispatchEvent(event);
+		var event = (0, _general.createEvent)('rendererready', node, false);
+		mediaElement.originalNode.dispatchEvent(event);
 
 		return node;
 	}
@@ -6598,7 +6615,7 @@ var YouTubeIframeRenderer = {
 					var initEvents = ['rendererready', 'loadedmetadata', 'loadeddata', 'canplay'];
 
 					for (var _i4 = 0, _total4 = initEvents.length; _i4 < _total4; _i4++) {
-						var event = (0, _general.createEvent)(initEvents[_i4], youtube);
+						var event = (0, _general.createEvent)(initEvents[_i4], youtube, true);
 						mediaElement.dispatchEvent(event);
 					}
 				},
@@ -6770,24 +6787,7 @@ var IS_FIREFOX = exports.IS_FIREFOX = /firefox/i.test(UA);
 var IS_SAFARI = exports.IS_SAFARI = /safari/i.test(UA) && !IS_CHROME;
 var IS_STOCK_ANDROID = exports.IS_STOCK_ANDROID = /^mozilla\/\d+\.\d+\s\(linux;\su;/i.test(UA);
 var HAS_MSE = exports.HAS_MSE = 'MediaSource' in _window2.default;
-var SUPPORT_POINTER_EVENTS = exports.SUPPORT_POINTER_EVENTS = function () {
-	var element = _document2.default.createElement('x'),
-	    documentElement = _document2.default.documentElement,
-	    getComputedStyle = _window2.default.getComputedStyle;
-
-	if (!('pointerEvents' in element.style)) {
-		return false;
-	}
-
-	element.style.pointerEvents = 'auto';
-	element.style.pointerEvents = 'x';
-	documentElement.appendChild(element);
-	var supports = getComputedStyle && (getComputedStyle(element, '') || {}).pointerEvents === 'auto';
-	element.remove();
-	return !!supports;
-}();
-
-var SUPPORT_PASSIVE_EVENT = exports.SUPPORT_PASSIVE_EVENT = function () {
+var SUPPORT_POINTER_EVENTS = exports.SUPPORT_POINTER_EVENTS = true;var SUPPORT_PASSIVE_EVENT = exports.SUPPORT_PASSIVE_EVENT = function () {
 	var supportsPassive = false;
 	try {
 		var opts = Object.defineProperty({}, 'passive', {
@@ -7246,7 +7246,7 @@ function splitEvents(events, id) {
 	return ret;
 }
 
-function createEvent(eventName, target) {
+function createEvent(eventName, target, isIframe) {
 
 	if (typeof eventName !== 'string') {
 		throw new Error('Event name must be a string');
@@ -7254,7 +7254,8 @@ function createEvent(eventName, target) {
 
 	var eventFrags = eventName.match(/([a-z]+\.([a-z]+))/i),
 	    detail = {
-		target: target
+		target: target,
+		isIframe: isIframe
 	};
 
 	if (eventFrags !== null) {

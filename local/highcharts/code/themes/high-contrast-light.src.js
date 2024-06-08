@@ -1,11 +1,10 @@
 /**
- * @license Highcharts JS v8.2.2 (2020-10-22)
+ * @license Highcharts JS v11.4.3 (2024-05-22)
  *
- * (c) 2009-2019 Highsoft AS
+ * (c) 2009-2024 Highsoft AS
  *
  * License: www.highcharts.com/license
  */
-'use strict';
 (function (factory) {
     if (typeof module === 'object' && module.exports) {
         factory['default'] = factory;
@@ -20,16 +19,24 @@
         factory(typeof Highcharts !== 'undefined' ? Highcharts : undefined);
     }
 }(function (Highcharts) {
+    'use strict';
     var _modules = Highcharts ? Highcharts._modules : {};
     function _registerModule(obj, path, args, fn) {
         if (!obj.hasOwnProperty(path)) {
             obj[path] = fn.apply(null, args);
+
+            if (typeof CustomEvent === 'function') {
+                window.dispatchEvent(new CustomEvent(
+                    'HighchartsModuleLoaded',
+                    { detail: { path: path, module: obj[path] } }
+                ));
+            }
         }
     }
-    _registerModule(_modules, 'Extensions/Themes/HighContrastLight.js', [_modules['Core/Globals.js'], _modules['Core/Utilities.js']], function (Highcharts, U) {
+    _registerModule(_modules, 'Extensions/Themes/HighContrastLight.js', [_modules['Core/Defaults.js']], function (D) {
         /* *
          *
-         *  (c) 2010-2020 Highsoft AS
+         *  (c) 2010-2024 Highsoft AS
          *
          *  Author: Øystein Moseng
          *
@@ -42,33 +49,70 @@
          *  !!!!!!! SOURCE GETS TRANSPILED BY TYPESCRIPT. EDIT TS FILE ONLY. !!!!!!!
          *
          * */
-        var setOptions = U.setOptions;
-        Highcharts.theme = {
-            colors: [
-                '#5f98cf',
-                '#434348',
-                '#49a65e',
-                '#f45b5b',
-                '#708090',
-                '#b68c51',
-                '#397550',
-                '#c0493d',
-                '#4f4a7a',
-                '#b381b3'
-            ],
-            navigator: {
-                series: {
-                    color: '#5f98cf',
-                    lineColor: '#5f98cf'
+        const { setOptions } = D;
+        /* *
+         *
+         *  Theme
+         *
+         * */
+        var HighContrastLightTheme;
+        (function (HighContrastLightTheme) {
+            /* *
+             *
+             *  Constants
+             *
+             * */
+            HighContrastLightTheme.options = {
+                colors: [
+                    '#265FB5',
+                    '#222',
+                    '#698F01',
+                    '#F4693E',
+                    '#4C0684',
+                    '#0FA388',
+                    '#B7104A',
+                    '#AF9023',
+                    '#1A704C',
+                    '#B02FDD'
+                ],
+                credits: {
+                    style: {
+                        color: '#767676'
+                    }
+                },
+                navigator: {
+                    series: {
+                        color: '#5f98cf',
+                        lineColor: '#5f98cf'
+                    }
                 }
+            };
+            /* *
+             *
+             *  Functions
+             *
+             * */
+            /**
+             * Apply the theme.
+             */
+            function apply() {
+                setOptions(HighContrastLightTheme.options);
             }
-        };
-        // Apply the theme
-        setOptions(Highcharts.theme);
+            HighContrastLightTheme.apply = apply;
+        })(HighContrastLightTheme || (HighContrastLightTheme = {}));
+        /* *
+         *
+         *  Default Export
+         *
+         * */
 
+        return HighContrastLightTheme;
     });
-    _registerModule(_modules, 'masters/themes/high-contrast-light.src.js', [], function () {
+    _registerModule(_modules, 'masters/themes/high-contrast-light.src.js', [_modules['Core/Globals.js'], _modules['Extensions/Themes/HighContrastLight.js']], function (H, HighContrastLightTheme) {
 
+        H.theme = HighContrastLightTheme.options;
+        HighContrastLightTheme.apply();
 
+        return H;
     });
 }));

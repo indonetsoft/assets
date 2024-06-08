@@ -1,6 +1,6 @@
 /* *
  *
- *  Copyright (c) 2019-2020 Highsoft AS
+ *  (c) 2019-2024 Highsoft AS
  *
  *  Boost module: stripped-down renderer for higher performance
  *
@@ -9,10 +9,26 @@
  *  !!!!!!! SOURCE GETS TRANSPILED BY TYPESCRIPT. EDIT TS FILE ONLY. !!!!!!!
  *
  * */
-import boostables from './Boostables.js';
+'use strict';
+/* *
+ *
+ *  Imports
+ *
+ * */
+import Boostables from './Boostables.js';
+/* *
+ *
+ *  Constants
+ *
+ * */
 // These are the series we allow boosting for.
-var boostableMap = {};
-boostables.forEach(function (item) {
-    boostableMap[item] = 1;
+const BoostableMap = {};
+Boostables.forEach((item) => {
+    BoostableMap[item] = true;
 });
-export default boostableMap;
+/* *
+ *
+ *  Default Export
+ *
+ * */
+export default BoostableMap;

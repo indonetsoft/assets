@@ -1,13 +1,20 @@
 /**
- * @license Highcharts Gantt JS v8.2.2 (2020-10-22)
+ * @license Highcharts Gantt JS v11.4.3 (2024-05-22)
  * @module highcharts/modules/pathfinder
  * @requires highcharts
  *
  * Pathfinder
  *
- * (c) 2016-2019 Øystein Moseng
+ * (c) 2016-2024 Øystein Moseng
  *
  * License: www.highcharts.com/license
  */
 'use strict';
-import '../../Gantt/Pathfinder.js';
+import Highcharts from '../../Core/Globals.js';
+import Pathfinder from '../../Gantt/Pathfinder.js';
+import ArrowSymbols from '../../Extensions/ArrowSymbols.js';
+const G = Highcharts;
+G.Pathfinder = G.Pathfinder || Pathfinder;
+ArrowSymbols.compose(G.SVGRenderer);
+G.Pathfinder.compose(G.Chart, G.Point);
+export default Highcharts;

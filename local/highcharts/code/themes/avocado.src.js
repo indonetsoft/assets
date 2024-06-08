@@ -1,11 +1,10 @@
 /**
- * @license Highcharts JS v8.2.2 (2020-10-22)
+ * @license Highcharts JS v11.4.3 (2024-05-22)
  *
- * (c) 2009-2019 Highsoft AS
+ * (c) 2009-2024 Highsoft AS
  *
  * License: www.highcharts.com/license
  */
-'use strict';
 (function (factory) {
     if (typeof module === 'object' && module.exports) {
         factory['default'] = factory;
@@ -20,16 +19,24 @@
         factory(typeof Highcharts !== 'undefined' ? Highcharts : undefined);
     }
 }(function (Highcharts) {
+    'use strict';
     var _modules = Highcharts ? Highcharts._modules : {};
     function _registerModule(obj, path, args, fn) {
         if (!obj.hasOwnProperty(path)) {
             obj[path] = fn.apply(null, args);
+
+            if (typeof CustomEvent === 'function') {
+                window.dispatchEvent(new CustomEvent(
+                    'HighchartsModuleLoaded',
+                    { detail: { path: path, module: obj[path] } }
+                ));
+            }
         }
     }
-    _registerModule(_modules, 'Extensions/Themes/Avocado.js', [_modules['Core/Globals.js'], _modules['Core/Utilities.js']], function (H, U) {
+    _registerModule(_modules, 'Extensions/Themes/Avocado.js', [_modules['Core/Defaults.js']], function (D) {
         /* *
          *
-         *  (c) 2010-2020 Highsoft AS
+         *  (c) 2010-2024 Highsoft AS
          *
          *  Author: Øystein Moseng
          *
@@ -41,32 +48,64 @@
          *  !!!!!!! SOURCE GETS TRANSPILED BY TYPESCRIPT. EDIT TS FILE ONLY. !!!!!!!
          *
          * */
-        var setOptions = U.setOptions;
-        H.theme = {
-            colors: ['#F3E796', '#95C471', '#35729E', '#251735'],
-            colorAxis: {
-                maxColor: '#05426E',
-                minColor: '#F3E796'
-            },
-            plotOptions: {
-                map: {
-                    nullColor: '#FCFEFE'
+        const { setOptions } = D;
+        /* *
+         *
+         *  Theme
+         *
+         * */
+        var AvocadoTheme;
+        (function (AvocadoTheme) {
+            /* *
+             *
+             *  Constants
+             *
+             * */
+            AvocadoTheme.options = {
+                colors: ['#F3E796', '#95C471', '#35729E', '#251735'],
+                colorAxis: {
+                    maxColor: '#05426E',
+                    minColor: '#F3E796'
+                },
+                plotOptions: {
+                    map: {
+                        nullColor: '#FCFEFE'
+                    }
+                },
+                navigator: {
+                    maskFill: 'rgba(170, 205, 170, 0.5)',
+                    series: {
+                        color: '#95C471',
+                        lineColor: '#35729E'
+                    }
                 }
-            },
-            navigator: {
-                maskFill: 'rgba(170, 205, 170, 0.5)',
-                series: {
-                    color: '#95C471',
-                    lineColor: '#35729E'
-                }
+            };
+            /* *
+             *
+             *  Functions
+             *
+             * */
+            /**
+             * Apply the theme.
+             */
+            function apply() {
+                setOptions(AvocadoTheme.options);
             }
-        };
-        // Apply the theme
-        setOptions(H.theme);
+            AvocadoTheme.apply = apply;
+        })(AvocadoTheme || (AvocadoTheme = {}));
+        /* *
+         *
+         *  Default Export
+         *
+         * */
 
+        return AvocadoTheme;
     });
-    _registerModule(_modules, 'masters/themes/avocado.src.js', [], function () {
+    _registerModule(_modules, 'masters/themes/avocado.src.js', [_modules['Core/Globals.js'], _modules['Extensions/Themes/Avocado.js']], function (H, AvocadoTheme) {
 
+        H.theme = AvocadoTheme.options;
+        AvocadoTheme.apply();
 
+        return H;
     });
 }));

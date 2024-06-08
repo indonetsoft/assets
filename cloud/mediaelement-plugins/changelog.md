@@ -1,5 +1,31 @@
 # Version History
 
+## *4.0.0 (2024/03/11)*
+This release marks a major version update to address and correct previous versioning inaccuracies. The transition from version 3.0.0 to 3.0.1 introduced changes that, upon further review, have been identified as breaking. These changes warranted a more significant version increment to reflect their impact accurately.
+
+### Updated Option Names:
+* Quality Plugin: Replace `iconPath` to `iconPathQuality`
+* A11y Plugin: Replace `iconSpritePath` to `iconSpritePathA11y`
+
+## *3.0.1 (2024/03/11)*
+### QUALITY PLUGIN
+* Icon Visibility Fix: The quality icon will now remain visible and functional across all quality adjustments.
+* Improved Option Naming: The option `iconPath` has been renamed to `iconPathQuality` to enhance clarity and consistency.
+
+### A11Y PLUGIN
+* Improved Option Naming: The option `iconSpritePath` has been renamed to `iconSpritePathA11y` to enhance clarity and consistency.
+
+## *3.0.0 (2024/03/06)*
+### QUALITY PLUGIN
+#### New Feature: Inline SVG icons for quality button
+* Using `iconPath`: By setting the `iconPath` option, you can specify the path to your SVG icon. Once set, an inline SVG icon will be dynamically generated and displayed on the quality button. Further information can be found [here](docs/quality.md).
+* Default Behavior: If you choose not to utilize the `iconPath` option, the quality button will continue to operate as before, displaying the default quality value as its text.
+
+### A11Y PLUGIN
+#### New Feature: Inline SVG icons for audio and video description buttons
+* Setting `iconSpritePath`: This option enables you to define the path to your SVG icon sprite. When specified, it allows for dynamic generation of inline SVG icons, which will be displayed on the audio and/or video description buttons. Further information can be found [here](docs/a11y.md).
+* Important CSS Adjustment: If you're planning to use `iconSpritePath` and your current setup includes background icons defined in CSS, you'll need to make a small but crucial update to your CSS file. Please remove any CSS rules that apply background icons to these buttons. This step is necessary to prevent the display of both SVG and background icons simultaneously.
+
 ## *2.6.7 (2023/08/02)*
 ### QUALITY PLUGIN
 * The `cleanMediaSource` function was updated to avoid captions being 

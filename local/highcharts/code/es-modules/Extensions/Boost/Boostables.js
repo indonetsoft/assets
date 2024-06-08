@@ -1,6 +1,6 @@
 /* *
  *
- *  Copyright (c) 2019-2020 Highsoft AS
+ *  (c) 2019-2024 Highsoft AS
  *
  *  Boost module: stripped-down renderer for higher performance
  *
@@ -9,9 +9,16 @@
  *  !!!!!!! SOURCE GETS TRANSPILED BY TYPESCRIPT. EDIT TS FILE ONLY. !!!!!!!
  *
  * */
+'use strict';
+/* *
+ *
+ *  Constants
+ *
+ * */
 // These are the series we allow boosting for.
-var boostables = [
+const Boostables = [
     'area',
+    'areaspline',
     'arearange',
     'column',
     'columnrange',
@@ -22,4 +29,9 @@ var boostables = [
     'bubble',
     'treemap'
 ];
-export default boostables;
+/* *
+ *
+ *  Default Export
+ *
+ * */
+export default Boostables;

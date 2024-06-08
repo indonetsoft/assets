@@ -4,71 +4,66 @@
  *
  * */
 'use strict';
-var __extends = (this && this.__extends) || (function () {
-    var extendStatics = function (d, b) {
-        extendStatics = Object.setPrototypeOf ||
-            ({ __proto__: [] } instanceof Array && function (d, b) { d.__proto__ = b; }) ||
-            function (d, b) { for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p]; };
-        return extendStatics(d, b);
-    };
-    return function (d, b) {
-        extendStatics(d, b);
-        function __() { this.constructor = d; }
-        d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
-    };
-})();
-import Annotation from '../Annotations.js';
+import Annotation from '../Annotation.js';
 import MockPoint from '../MockPoint.js';
 import Tunnel from './Tunnel.js';
 import U from '../../../Core/Utilities.js';
-var merge = U.merge;
-/* eslint-disable no-invalid-this, valid-jsdoc */
-var createPathDGenerator = function (retracementIndex, isBackground) {
+const { merge } = U;
+/* *
+ *
+ *  Functions
+ *
+ * */
+/**
+ * @private
+ */
+function createPathDGenerator(retracementIndex, isBackground) {
     return function () {
-        var annotation = this.annotation, leftTop = this.anchor(annotation.startRetracements[retracementIndex]).absolutePosition, rightTop = this.anchor(annotation.endRetracements[retracementIndex]).absolutePosition, d = [
+        const annotation = this.annotation;
+        if (!annotation.startRetracements || !annotation.endRetracements) {
+            return [];
+        }
+        const leftTop = this.anchor(annotation.startRetracements[retracementIndex]).absolutePosition, rightTop = this.anchor(annotation.endRetracements[retracementIndex]).absolutePosition, d = [
             ['M', Math.round(leftTop.x), Math.round(leftTop.y)],
             ['L', Math.round(rightTop.x), Math.round(rightTop.y)]
-        ], rightBottom, leftBottom;
+        ];
         if (isBackground) {
-            rightBottom = this.anchor(annotation.endRetracements[retracementIndex - 1]).absolutePosition;
-            leftBottom = this.anchor(annotation.startRetracements[retracementIndex - 1]).absolutePosition;
+            const rightBottom = this.anchor(annotation.endRetracements[retracementIndex - 1]).absolutePosition;
+            const leftBottom = this.anchor(annotation.startRetracements[retracementIndex - 1]).absolutePosition;
             d.push(['L', Math.round(rightBottom.x), Math.round(rightBottom.y)], ['L', Math.round(leftBottom.x), Math.round(leftBottom.y)]);
         }
         return d;
     };
-};
-var Fibonacci = /** @class */ (function (_super) {
-    __extends(Fibonacci, _super);
+}
+/* *
+ *
+ *  Class
+ *
+ * */
+class Fibonacci extends Tunnel {
     /* *
      *
-     * Constructors
+     *  Functions
      *
      * */
-    function Fibonacci(chart, options) {
-        return _super.call(this, chart, options) || this;
-    }
-    /* *
-     *
-     * Functions
-     *
-     * */
-    Fibonacci.prototype.linkPoints = function () {
-        _super.prototype.linkPoints.call(this);
+    linkPoints() {
+        super.linkPoints();
         this.linkRetracementsPoints();
         return;
-    };
-    Fibonacci.prototype.linkRetracementsPoints = function () {
-        var points = this.points, startDiff = points[0].y - points[3].y, endDiff = points[1].y - points[2].y, startX = points[0].x, endX = points[1].x;
-        Fibonacci.levels.forEach(function (level, i) {
-            var startRetracement = points[0].y - startDiff * level, endRetracement = points[1].y - endDiff * level;
+    }
+    linkRetracementsPoints() {
+        const points = this.points, startDiff = points[0].y - points[3].y, endDiff = points[1].y - points[2].y, startX = points[0].x, endX = points[1].x;
+        Fibonacci.levels.forEach((level, i) => {
+            const startRetracement = points[0].y - startDiff * level, endRetracement = points[1].y - endDiff * level, index = this.options.typeOptions.reversed ?
+                (Fibonacci.levels.length - i - 1) : i;
             this.startRetracements = this.startRetracements || [];
             this.endRetracements = this.endRetracements || [];
-            this.linkRetracementPoint(i, startX, startRetracement, this.startRetracements);
-            this.linkRetracementPoint(i, endX, endRetracement, this.endRetracements);
-        }, this);
-    };
-    Fibonacci.prototype.linkRetracementPoint = function (pointIndex, x, y, retracements) {
-        var point = retracements[pointIndex], typeOptions = this.options.typeOptions;
+            this.linkRetracementPoint(index, startX, startRetracement, this.startRetracements);
+            this.linkRetracementPoint(index, endX, endRetracement, this.endRetracements);
+        });
+    }
+    linkRetracementPoint(pointIndex, x, y, retracements) {
+        const point = retracements[pointIndex], typeOptions = this.options.typeOptions;
         if (!point) {
             retracements[pointIndex] = new MockPoint(this.chart, this, {
                 x: x,
@@ -82,43 +77,46 @@ var Fibonacci = /** @class */ (function (_super) {
             point.options.y = y;
             point.refresh();
         }
-    };
-    Fibonacci.prototype.addShapes = function () {
+    }
+    addShapes() {
         Fibonacci.levels.forEach(function (_level, i) {
+            const { backgroundColors, lineColor, lineColors } = this.options.typeOptions;
             this.initShape({
                 type: 'path',
-                d: createPathDGenerator(i)
-            }, false);
+                d: createPathDGenerator(i),
+                stroke: lineColors[i] || lineColor,
+                className: 'highcharts-fibonacci-line'
+            }, i);
             if (i > 0) {
                 this.initShape({
                     type: 'path',
-                    fill: this.options.typeOptions.backgroundColors[i - 1],
+                    fill: backgroundColors[i - 1],
                     strokeWidth: 0,
-                    d: createPathDGenerator(i, true)
+                    d: createPathDGenerator(i, true),
+                    className: 'highcharts-fibonacci-background-' + (i - 1)
                 });
             }
         }, this);
-    };
-    Fibonacci.prototype.addLabels = function () {
+    }
+    addLabels() {
         Fibonacci.levels.forEach(function (level, i) {
-            var options = this.options.typeOptions, label = this.initLabel(merge(options.labels[i], {
+            const options = this.options.typeOptions, label = this.initLabel(merge(options.labels[i], {
                 point: function (target) {
-                    var point = MockPoint.pointToOptions(target.annotation.startRetracements[i]);
+                    const point = MockPoint.pointToOptions(target.annotation.startRetracements[i]);
                     return point;
                 },
                 text: level.toString()
             }));
             options.labels[i] = label.options;
         }, this);
-    };
-    /* *
-     *
-     * Static properties
-     *
-     * */
-    Fibonacci.levels = [0, 0.236, 0.382, 0.5, 0.618, 0.786, 1];
-    return Fibonacci;
-}(Tunnel));
+    }
+}
+/* *
+ *
+ *  Static Properties
+ *
+ * */
+Fibonacci.levels = [0, 0.236, 0.382, 0.5, 0.618, 0.786, 1];
 Fibonacci.prototype.defaultOptions = merge(Tunnel.prototype.defaultOptions, 
 /**
  * A fibonacci annotation.
@@ -132,6 +130,17 @@ Fibonacci.prototype.defaultOptions = merge(Tunnel.prototype.defaultOptions,
  */
 {
     typeOptions: {
+        /**
+         * Whether the annotation levels should be reversed. By default they
+         * start from 0 and go to 1.
+         *
+         * @sample highcharts/annotations-advanced/fibonacci-reversed/
+         *         Fibonacci annotation reversed
+         *
+         * @type {boolean}
+         * @apioption annotations.fibonacci.typeOptions.reversed
+         */
+        reversed: false,
         /**
          * The height of the fibonacci in terms of yAxis.
          */
@@ -161,7 +170,7 @@ Fibonacci.prototype.defaultOptions = merge(Tunnel.prototype.defaultOptions,
         /**
          * The color of line.
          */
-        lineColor: 'grey',
+        lineColor: "#999999" /* Palette.neutralColor40 */,
         /**
          * An array of colors for the lines.
          */
@@ -191,4 +200,9 @@ Fibonacci.prototype.defaultOptions = merge(Tunnel.prototype.defaultOptions,
     }
 });
 Annotation.types.fibonacci = Fibonacci;
+/* *
+ *
+ *  Default Export
+ *
+ * */
 export default Fibonacci;

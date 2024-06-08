@@ -1,11 +1,16 @@
 /**
- * @license Highcharts JS v8.2.2 (2020-10-22)
+ * @license Highcharts JS v11.4.3 (2024-05-22)
  * @module highcharts/modules/broken-axis
  * @requires highcharts
  *
- * (c) 2009-2019 Torstein Honsi
+ * (c) 2009-2024 Torstein Honsi
  *
  * License: www.highcharts.com/license
  */
 'use strict';
-import '../../Core/Axis/BrokenAxis.js';
+import Highcharts from '../../Core/Globals.js';
+import BrokenAxis from '../../Core/Axis/BrokenAxis.js';
+const G = Highcharts;
+G.BrokenAxis = G.BrokenAxis || BrokenAxis;
+G.BrokenAxis.compose(G.Axis, G.Series);
+export default Highcharts;

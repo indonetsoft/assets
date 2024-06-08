@@ -1,6 +1,6 @@
 /* *
  *
- *  (c) 2010-2020 Torstein Honsi
+ *  (c) 2010-2024 Torstein Honsi
  *
  *  Extension to the Series object in 3D charts.
  *
@@ -11,51 +11,94 @@
  * */
 'use strict';
 import H from '../Globals.js';
-import Math3D from '../../Extensions/Math3D.js';
-var perspective = Math3D.perspective;
+const { composed } = H;
+import Math3D from '../Math3D.js';
+const { perspective } = Math3D;
+import Series from '../Series/Series.js';
 import U from '../Utilities.js';
-var addEvent = U.addEvent, pick = U.pick;
-import '../../Series/LineSeries.js';
-/* eslint-disable no-invalid-this */
-// Wrap the translate method to post-translate points into 3D perspective
-addEvent(H.Series, 'afterTranslate', function () {
-    if (this.chart.is3d()) {
-        this.translate3dPoints();
+const { addEvent, extend, isNumber, merge, pick, pushUnique } = U;
+/* *
+ *
+ *  Class
+ *
+ * */
+class Series3D extends Series {
+    /* *
+     *
+     *  Static Functions
+     *
+     * */
+    static compose(SeriesClass) {
+        if (pushUnique(composed, 'Core.Series3D')) {
+            addEvent(SeriesClass, 'afterTranslate', function () {
+                if (this.chart.is3d()) {
+                    this.translate3dPoints();
+                }
+            });
+            extend(SeriesClass.prototype, {
+                translate3dPoints: Series3D.prototype.translate3dPoints
+            });
+        }
     }
-});
-// Translate the plotX, plotY properties and add plotZ.
-H.Series.prototype.translate3dPoints = function () {
-    var series = this, chart = series.chart, zAxis = pick(series.zAxis, chart.options.zAxis[0]), rawPoints = [], rawPoint, projectedPoints, projectedPoint, zValue, i;
-    for (i = 0; i < series.data.length; i++) {
-        rawPoint = series.data[i];
-        if (zAxis && zAxis.translate) {
-            zValue = zAxis.logarithmic && zAxis.val2lin ?
-                zAxis.val2lin(rawPoint.z) :
-                rawPoint.z; // #4562
-            rawPoint.plotZ = zAxis.translate(zValue);
-            rawPoint.isInside = rawPoint.isInside ?
-                (zValue >= zAxis.min &&
-                    zValue <= zAxis.max) :
-                false;
-        }
-        else {
-            rawPoint.plotZ = 0;
-        }
-        rawPoint.axisXpos = rawPoint.plotX;
-        rawPoint.axisYpos = rawPoint.plotY;
-        rawPoint.axisZpos = rawPoint.plotZ;
-        rawPoints.push({
-            x: rawPoint.plotX,
-            y: rawPoint.plotY,
-            z: rawPoint.plotZ
+    /* *
+     *
+     *  Functions
+     *
+     * */
+    /**
+     * Translate the plotX, plotY properties and add plotZ.
+     * @private
+     */
+    translate3dPoints() {
+        const series = this, seriesOptions = series.options, chart = series.chart, zAxis = pick(series.zAxis, chart.options.zAxis[0]), rawPoints = [], rawPointsX = [], stack = seriesOptions.stacking ?
+            (isNumber(seriesOptions.stack) ? seriesOptions.stack : 0) :
+            series.index || 0;
+        let projectedPoint, zValue;
+        series.zPadding = stack *
+            (seriesOptions.depth || 0 + (seriesOptions.groupZPadding || 1));
+        series.data.forEach((rawPoint) => {
+            if (zAxis && zAxis.translate) {
+                zValue = zAxis.logarithmic && zAxis.val2lin ?
+                    zAxis.val2lin(rawPoint.z) :
+                    rawPoint.z; // #4562
+                rawPoint.plotZ = zAxis.translate(zValue);
+                rawPoint.isInside = rawPoint.isInside ?
+                    (zValue >= zAxis.min &&
+                        zValue <= zAxis.max) :
+                    false;
+            }
+            else {
+                rawPoint.plotZ = series.zPadding;
+            }
+            rawPoint.axisXpos = rawPoint.plotX;
+            rawPoint.axisYpos = rawPoint.plotY;
+            rawPoint.axisZpos = rawPoint.plotZ;
+            rawPoints.push({
+                x: rawPoint.plotX,
+                y: rawPoint.plotY,
+                z: rawPoint.plotZ
+            });
+            rawPointsX.push(rawPoint.plotX || 0);
+        });
+        series.rawPointsX = rawPointsX;
+        const projectedPoints = perspective(rawPoints, chart, true);
+        series.data.forEach((rawPoint, i) => {
+            projectedPoint = projectedPoints[i];
+            rawPoint.plotX = projectedPoint.x;
+            rawPoint.plotY = projectedPoint.y;
+            rawPoint.plotZ = projectedPoint.z;
         });
     }
-    projectedPoints = perspective(rawPoints, chart, true);
-    for (i = 0; i < series.data.length; i++) {
-        rawPoint = series.data[i];
-        projectedPoint = projectedPoints[i];
-        rawPoint.plotX = projectedPoint.x;
-        rawPoint.plotY = projectedPoint.y;
-        rawPoint.plotZ = projectedPoint.z;
-    }
-};
+}
+/* *
+ *
+ *  Static Properties
+ *
+ * */
+Series3D.defaultOptions = merge(Series.defaultOptions);
+/* *
+ *
+ *  Default Export
+ *
+ * */
+export default Series3D;

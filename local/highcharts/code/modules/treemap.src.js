@@ -1,12 +1,11 @@
 /**
- * @license Highcharts JS v8.2.2 (2020-10-22)
+ * @license Highcharts JS v11.4.3 (2024-05-22)
  *
- * (c) 2014-2019 Highsoft AS
+ * (c) 2014-2024 Highsoft AS
  * Authors: Jon Arild Nygard / Oystein Moseng
  *
  * License: www.highcharts.com/license
  */
-'use strict';
 (function (factory) {
     if (typeof module === 'object' && module.exports) {
         factory['default'] = factory;
@@ -21,414 +20,1126 @@
         factory(typeof Highcharts !== 'undefined' ? Highcharts : undefined);
     }
 }(function (Highcharts) {
+    'use strict';
     var _modules = Highcharts ? Highcharts._modules : {};
     function _registerModule(obj, path, args, fn) {
         if (!obj.hasOwnProperty(path)) {
             obj[path] = fn.apply(null, args);
+
+            if (typeof CustomEvent === 'function') {
+                window.dispatchEvent(new CustomEvent(
+                    'HighchartsModuleLoaded',
+                    { detail: { path: path, module: obj[path] } }
+                ));
+            }
         }
     }
-    _registerModule(_modules, 'Mixins/ColorMapSeries.js', [_modules['Core/Globals.js'], _modules['Core/Series/Point.js'], _modules['Core/Utilities.js']], function (H, Point, U) {
+    _registerModule(_modules, 'Extensions/Breadcrumbs/BreadcrumbsDefaults.js', [], function () {
         /* *
          *
-         *  (c) 2010-2020 Torstein Honsi
+         *  Highcharts Breadcrumbs module
+         *
+         *  Authors: Grzegorz Blachlinski, Karol Kolodziej
          *
          *  License: www.highcharts.com/license
          *
          *  !!!!!!! SOURCE GETS TRANSPILED BY TYPESCRIPT. EDIT TS FILE ONLY. !!!!!!!
          *
          * */
-        var defined = U.defined;
-        var noop = H.noop,
-            seriesTypes = H.seriesTypes;
-        /**
-         * Mixin for maps and heatmaps
+        /* *
          *
-         * @private
-         * @mixin Highcharts.colorMapPointMixin
+         *  Constants
+         *
+         * */
+        /**
+         * @optionparent lang
          */
-        var colorMapPointMixin = {
-                dataLabelOnNull: true,
-                /* eslint-disable valid-jsdoc */
-                /**
-                 * Color points have a value option that determines whether or not it is
-                 * a null point
-                 * @private
-                 * @function Highcharts.colorMapPointMixin.isValid
-                 * @return {boolean}
-                 */
-                isValid: function () {
-                    // undefined is allowed
-                    return (this.value !== null &&
-                        this.value !== Infinity &&
-                        this.value !== -Infinity);
+        const lang = {
+            /**
+             * @since   10.0.0
+             * @product highcharts
+             *
+             * @private
+             */
+            mainBreadcrumb: 'Main'
+        };
+        /**
+         * Options for breadcrumbs. Breadcrumbs general options are defined in
+         * `navigation.breadcrumbs`. Specific options for drilldown are set in
+         * `drilldown.breadcrumbs` and for tree-like series traversing, in
+         * `plotOptions[series].breadcrumbs`.
+         *
+         * @since        10.0.0
+         * @product      highcharts
+         * @optionparent navigation.breadcrumbs
+         */
+        const options = {
+            /**
+             * A collection of attributes for the buttons. The object takes SVG
+             * attributes like `fill`, `stroke`, `stroke-width`, as well as `style`,
+             * a collection of CSS properties for the text.
+             *
+             * The object can also be extended with states, so you can set
+             * presentational options for `hover`, `select` or `disabled` button
+             * states.
+             *
+             * @sample {highcharts} highcharts/breadcrumbs/single-button
+             *         Themed, single button
+             *
+             * @type    {Highcharts.SVGAttributes}
+             * @since   10.0.0
+             * @product highcharts
+             */
+            buttonTheme: {
+                /** @ignore */
+                fill: 'none',
+                /** @ignore */
+                height: 18,
+                /** @ignore */
+                padding: 2,
+                /** @ignore */
+                'stroke-width': 0,
+                /** @ignore */
+                zIndex: 7,
+                /** @ignore */
+                states: {
+                    select: {
+                        fill: 'none'
+                    }
+                },
+                style: {
+                    color: "#334eff" /* Palette.highlightColor80 */
+                }
             },
             /**
-             * @private
-             * @function Highcharts.colorMapPointMixin.setState
-             * @param {string} state
-             * @return {void}
+             * The default padding for each button and separator in each direction.
+             *
+             * @type  {number}
+             * @since 10.0.0
              */
-            setState: function (state) {
-                Point.prototype.setState.call(this, state);
-                if (this.graphic) {
-                    this.graphic.attr({
-                        zIndex: state === 'hover' ? 1 : 0
+            buttonSpacing: 5,
+            /**
+             * Fires when clicking on the breadcrumbs button. Two arguments are
+             * passed to the function. First breadcrumb button as an SVG element.
+             * Second is the breadcrumbs class, containing reference to the chart,
+             * series etc.
+             *
+             * ```js
+             * click: function(button, breadcrumbs) {
+             *   console.log(button);
+             * }
+             * ```
+             *
+             * Return false to stop default buttons click action.
+             *
+             * @type      {Highcharts.BreadcrumbsClickCallbackFunction}
+             * @since     10.0.0
+             * @apioption navigation.breadcrumbs.events.click
+             */
+            /**
+             * When the breadcrumbs are floating, the plot area will not move to
+             * make space for it. By default, the chart will not make space for the
+             * buttons. This property won't work when positioned in the middle.
+             *
+             * @sample highcharts/breadcrumbs/single-button
+             *         Floating button
+             *
+             * @type  {boolean}
+             * @since 10.0.0
+             */
+            floating: false,
+            /**
+             * A format string for the breadcrumbs button. Variables are enclosed by
+             * curly brackets. Available values are passed in the declared point
+             * options.
+             *
+             * @type      {string|undefined}
+             * @since 10.0.0
+             * @default   undefined
+             * @sample {highcharts} highcharts/breadcrumbs/format Display custom
+             *          values in breadcrumb button.
+             */
+            format: void 0,
+            /**
+             * Callback function to format the breadcrumb text from scratch.
+             *
+             * @type      {Highcharts.BreadcrumbsFormatterCallbackFunction}
+             * @since     10.0.0
+             * @default   undefined
+             * @apioption navigation.breadcrumbs.formatter
+             */
+            /**
+             * What box to align the button to. Can be either `plotBox` or
+             * `spacingBox`.
+             *
+             * @type    {Highcharts.ButtonRelativeToValue}
+             * @default plotBox
+             * @since   10.0.0
+             * @product highcharts highmaps
+             */
+            relativeTo: 'plotBox',
+            /**
+             * Whether to reverse the order of buttons. This is common in Arabic
+             * and Hebrew.
+             *
+             * @sample {highcharts} highcharts/breadcrumbs/rtl
+             *         Breadcrumbs in RTL
+             *
+             * @type  {boolean}
+             * @since 10.2.0
+             */
+            rtl: false,
+            /**
+             * Positioning for the button row. The breadcrumbs buttons will be
+             * aligned properly for the default chart layout (title,  subtitle,
+             * legend, range selector) for the custom chart layout set the position
+             * properties.
+             *
+             * @sample  {highcharts} highcharts/breadcrumbs/single-button
+             *          Single, right aligned button
+             *
+             * @type    {Highcharts.BreadcrumbsAlignOptions}
+             * @since   10.0.0
+             * @product highcharts highmaps
+             */
+            position: {
+                /**
+                 * Horizontal alignment of the breadcrumbs buttons.
+                 *
+                 * @type {Highcharts.AlignValue}
+                 */
+                align: 'left',
+                /**
+                 * Vertical alignment of the breadcrumbs buttons.
+                 *
+                 * @type {Highcharts.VerticalAlignValue}
+                 */
+                verticalAlign: 'top',
+                /**
+                 * The X offset of the breadcrumbs button group.
+                 *
+                 * @type {number}
+                 */
+                x: 0,
+                /**
+                 * The Y offset of the breadcrumbs button group. When `undefined`,
+                 * and `floating` is `false`, the `y` position is adapted so that
+                 * the breadcrumbs are rendered outside the target area.
+                 *
+                 * @type {number|undefined}
+                 */
+                y: void 0
+            },
+            /**
+             * Options object for Breadcrumbs separator.
+             *
+             * @since 10.0.0
+             */
+            separator: {
+                /**
+                 * @type    {string}
+                 * @since   10.0.0
+                 * @product highcharts
+                 */
+                text: '/',
+                /**
+                 * CSS styles for the breadcrumbs separator.
+                 *
+                 * In styled mode, the breadcrumbs separators are styled by the
+                 * `.highcharts-separator` rule with its different states.
+                 *  @type  {Highcharts.CSSObject}
+                 *  @since 10.0.0
+                 */
+                style: {
+                    color: "#666666" /* Palette.neutralColor60 */,
+                    fontSize: '0.8em'
+                }
+            },
+            /**
+             * Show full path or only a single button.
+             *
+             * @sample {highcharts} highcharts/breadcrumbs/single-button
+             *         Single, styled button
+             *
+             * @type  {boolean}
+             * @since 10.0.0
+             */
+            showFullPath: true,
+            /**
+             * CSS styles for all breadcrumbs.
+             *
+             * In styled mode, the breadcrumbs buttons are styled by the
+             * `.highcharts-breadcrumbs-buttons .highcharts-button` rule with its
+             * different states.
+             *
+             * @type  {Highcharts.SVGAttributes}
+             * @since 10.0.0
+             */
+            style: {},
+            /**
+             * Whether to use HTML to render the breadcrumbs items texts.
+             *
+             * @type  {boolean}
+             * @since 10.0.0
+             */
+            useHTML: false,
+            /**
+             * The z index of the breadcrumbs group.
+             *
+             * @type  {number}
+             * @since 10.0.0
+             */
+            zIndex: 7
+        };
+        /* *
+         *
+         *  Default Export
+         *
+         * */
+        const BreadcrumbsDefaults = {
+            lang,
+            options
+        };
+
+        return BreadcrumbsDefaults;
+    });
+    _registerModule(_modules, 'Extensions/Breadcrumbs/Breadcrumbs.js', [_modules['Extensions/Breadcrumbs/BreadcrumbsDefaults.js'], _modules['Core/Templating.js'], _modules['Core/Globals.js'], _modules['Core/Utilities.js']], function (BreadcrumbsDefaults, F, H, U) {
+        /* *
+         *
+         *  Highcharts Breadcrumbs module
+         *
+         *  Authors: Grzegorz Blachlinski, Karol Kolodziej
+         *
+         *  License: www.highcharts.com/license
+         *
+         *  !!!!!!! SOURCE GETS TRANSPILED BY TYPESCRIPT. EDIT TS FILE ONLY. !!!!!!!
+         *
+         * */
+        const { format } = F;
+        const { composed } = H;
+        const { addEvent, defined, extend, fireEvent, isString, merge, objectEach, pick, pushUnique } = U;
+        /* *
+         *
+         *  Functions
+         *
+         * */
+        /**
+         * Shift the drillUpButton to make the space for resetZoomButton, #8095.
+         * @private
+         */
+        function onChartAfterShowResetZoom() {
+            const chart = this;
+            if (chart.breadcrumbs) {
+                const bbox = chart.resetZoomButton &&
+                    chart.resetZoomButton.getBBox(), breadcrumbsOptions = chart.breadcrumbs.options;
+                if (bbox &&
+                    breadcrumbsOptions.position.align === 'right' &&
+                    breadcrumbsOptions.relativeTo === 'plotBox') {
+                    chart.breadcrumbs.alignBreadcrumbsGroup(-bbox.width - breadcrumbsOptions.buttonSpacing);
+                }
+            }
+        }
+        /**
+         * Remove resize/afterSetExtremes at chart destroy.
+         * @private
+         */
+        function onChartDestroy() {
+            if (this.breadcrumbs) {
+                this.breadcrumbs.destroy();
+                this.breadcrumbs = void 0;
+            }
+        }
+        /**
+         * Logic for making space for the buttons above the plot area
+         * @private
+         */
+        function onChartGetMargins() {
+            const breadcrumbs = this.breadcrumbs;
+            if (breadcrumbs &&
+                !breadcrumbs.options.floating &&
+                breadcrumbs.level) {
+                const breadcrumbsOptions = breadcrumbs.options, buttonTheme = breadcrumbsOptions.buttonTheme, breadcrumbsHeight = ((buttonTheme.height || 0) +
+                    2 * (buttonTheme.padding || 0) +
+                    breadcrumbsOptions.buttonSpacing), verticalAlign = breadcrumbsOptions.position.verticalAlign;
+                if (verticalAlign === 'bottom') {
+                    this.marginBottom = (this.marginBottom || 0) + breadcrumbsHeight;
+                    breadcrumbs.yOffset = breadcrumbsHeight;
+                }
+                else if (verticalAlign !== 'middle') {
+                    this.plotTop += breadcrumbsHeight;
+                    breadcrumbs.yOffset = -breadcrumbsHeight;
+                }
+                else {
+                    breadcrumbs.yOffset = void 0;
+                }
+            }
+        }
+        /**
+         * @private
+         */
+        function onChartRedraw() {
+            this.breadcrumbs && this.breadcrumbs.redraw();
+        }
+        /**
+         * After zooming out, shift the drillUpButton to the previous position, #8095.
+         * @private
+         */
+        function onChartSelection(event) {
+            if (event.resetSelection === true &&
+                this.breadcrumbs) {
+                this.breadcrumbs.alignBreadcrumbsGroup();
+            }
+        }
+        /* *
+         *
+         *  Class
+         *
+         * */
+        /**
+         * The Breadcrumbs class
+         *
+         * @private
+         * @class
+         * @name Highcharts.Breadcrumbs
+         *
+         * @param {Highcharts.Chart} chart
+         *        Chart object
+         * @param {Highcharts.Options} userOptions
+         *        User options
+         */
+        class Breadcrumbs {
+            /* *
+             *
+             *  Functions
+             *
+             * */
+            static compose(ChartClass, highchartsDefaultOptions) {
+                if (pushUnique(composed, 'Breadcrumbs')) {
+                    addEvent(ChartClass, 'destroy', onChartDestroy);
+                    addEvent(ChartClass, 'afterShowResetZoom', onChartAfterShowResetZoom);
+                    addEvent(ChartClass, 'getMargins', onChartGetMargins);
+                    addEvent(ChartClass, 'redraw', onChartRedraw);
+                    addEvent(ChartClass, 'selection', onChartSelection);
+                    // Add language support.
+                    extend(highchartsDefaultOptions.lang, BreadcrumbsDefaults.lang);
+                }
+            }
+            /* *
+             *
+             *  Constructor
+             *
+             * */
+            constructor(chart, userOptions) {
+                this.elementList = {};
+                this.isDirty = true;
+                this.level = 0;
+                this.list = [];
+                const chartOptions = merge(chart.options.drilldown &&
+                    chart.options.drilldown.drillUpButton, Breadcrumbs.defaultOptions, chart.options.navigation && chart.options.navigation.breadcrumbs, userOptions);
+                this.chart = chart;
+                this.options = chartOptions || {};
+            }
+            /* *
+             *
+             *  Functions
+             *
+             * */
+            /**
+             * Update Breadcrumbs properties, like level and list.
+             *
+             * @requires  modules/breadcrumbs
+             *
+             * @function Highcharts.Breadcrumbs#updateProperties
+             * @param {Highcharts.Breadcrumbs} this
+             *        Breadcrumbs class.
+             */
+            updateProperties(list) {
+                this.setList(list);
+                this.setLevel();
+                this.isDirty = true;
+            }
+            /**
+             * Set breadcrumbs list.
+             * @function Highcharts.Breadcrumbs#setList
+             *
+             * @requires  modules/breadcrumbs
+             *
+             * @param {Highcharts.Breadcrumbs} this
+             *        Breadcrumbs class.
+             * @param {Highcharts.BreadcrumbsOptions} list
+             *        Breadcrumbs list.
+             */
+            setList(list) {
+                this.list = list;
+            }
+            /**
+             * Calculate level on which chart currently is.
+             *
+             * @requires  modules/breadcrumbs
+             *
+             * @function Highcharts.Breadcrumbs#setLevel
+             * @param {Highcharts.Breadcrumbs} this
+             *        Breadcrumbs class.
+             */
+            setLevel() {
+                this.level = this.list.length && this.list.length - 1;
+            }
+            /**
+             * Get Breadcrumbs level
+             *
+             * @requires  modules/breadcrumbs
+             *
+             * @function Highcharts.Breadcrumbs#getLevel
+             * @param {Highcharts.Breadcrumbs} this
+             *        Breadcrumbs class.
+             */
+            getLevel() {
+                return this.level;
+            }
+            /**
+             * Default button text formatter.
+             *
+             * @requires  modules/breadcrumbs
+             *
+             * @function Highcharts.Breadcrumbs#getButtonText
+             * @param {Highcharts.Breadcrumbs} this
+             *        Breadcrumbs class.
+             * @param {Highcharts.Breadcrumbs} breadcrumb
+             *        Breadcrumb.
+             * @return {string}
+             *         Formatted text.
+             */
+            getButtonText(breadcrumb) {
+                const breadcrumbs = this, chart = breadcrumbs.chart, breadcrumbsOptions = breadcrumbs.options, lang = chart.options.lang, textFormat = pick(breadcrumbsOptions.format, breadcrumbsOptions.showFullPath ?
+                    '{level.name}' : '← {level.name}'), defaultText = lang && pick(lang.drillUpText, lang.mainBreadcrumb);
+                let returnText = breadcrumbsOptions.formatter &&
+                    breadcrumbsOptions.formatter(breadcrumb) ||
+                    format(textFormat, { level: breadcrumb.levelOptions }, chart) || '';
+                if (((isString(returnText) &&
+                    !returnText.length) ||
+                    returnText === '← ') &&
+                    defined(defaultText)) {
+                    returnText = !breadcrumbsOptions.showFullPath ?
+                        '← ' + defaultText :
+                        defaultText;
+                }
+                return returnText;
+            }
+            /**
+             * Redraw.
+             *
+             * @requires  modules/breadcrumbs
+             *
+             * @function Highcharts.Breadcrumbs#redraw
+             * @param {Highcharts.Breadcrumbs} this
+             *        Breadcrumbs class.
+             */
+            redraw() {
+                if (this.isDirty) {
+                    this.render();
+                }
+                if (this.group) {
+                    this.group.align();
+                }
+                this.isDirty = false;
+            }
+            /**
+             * Create a group, then draw breadcrumbs together with the separators.
+             *
+             * @requires  modules/breadcrumbs
+             *
+             * @function Highcharts.Breadcrumbs#render
+             * @param {Highcharts.Breadcrumbs} this
+             *        Breadcrumbs class.
+             */
+            render() {
+                const breadcrumbs = this, chart = breadcrumbs.chart, breadcrumbsOptions = breadcrumbs.options;
+                // A main group for the breadcrumbs.
+                if (!breadcrumbs.group && breadcrumbsOptions) {
+                    breadcrumbs.group = chart.renderer
+                        .g('breadcrumbs-group')
+                        .addClass('highcharts-no-tooltip highcharts-breadcrumbs')
+                        .attr({
+                        zIndex: breadcrumbsOptions.zIndex
+                    })
+                        .add();
+                }
+                // Draw breadcrumbs.
+                if (breadcrumbsOptions.showFullPath) {
+                    this.renderFullPathButtons();
+                }
+                else {
+                    this.renderSingleButton();
+                }
+                this.alignBreadcrumbsGroup();
+            }
+            /**
+             * Draw breadcrumbs together with the separators.
+             *
+             * @requires  modules/breadcrumbs
+             *
+             * @function Highcharts.Breadcrumbs#renderFullPathButtons
+             * @param {Highcharts.Breadcrumbs} this
+             *        Breadcrumbs class.
+             */
+            renderFullPathButtons() {
+                // Make sure that only one type of button is visible.
+                this.destroySingleButton();
+                this.resetElementListState();
+                this.updateListElements();
+                this.destroyListElements();
+            }
+            /**
+             * Render Single button - when showFullPath is not used. The button is
+             * similar to the old drillUpButton
+             *
+             * @requires  modules/breadcrumbs
+             *
+             * @function Highcharts.Breadcrumbs#renderSingleButton
+             * @param {Highcharts.Breadcrumbs} this Breadcrumbs class.
+             */
+            renderSingleButton() {
+                const breadcrumbs = this, chart = breadcrumbs.chart, list = breadcrumbs.list, breadcrumbsOptions = breadcrumbs.options, buttonSpacing = breadcrumbsOptions.buttonSpacing;
+                // Make sure that only one type of button is visible.
+                this.destroyListElements();
+                // Draw breadcrumbs. Initial position for calculating the breadcrumbs
+                // group.
+                const posX = breadcrumbs.group ?
+                    breadcrumbs.group.getBBox().width :
+                    buttonSpacing, posY = buttonSpacing;
+                const previousBreadcrumb = list[list.length - 2];
+                if (!chart.drillUpButton && (this.level > 0)) {
+                    chart.drillUpButton = breadcrumbs.renderButton(previousBreadcrumb, posX, posY);
+                }
+                else if (chart.drillUpButton) {
+                    if (this.level > 0) {
+                        // Update button.
+                        this.updateSingleButton();
+                    }
+                    else {
+                        this.destroySingleButton();
+                    }
+                }
+            }
+            /**
+             * Update group position based on align and it's width.
+             *
+             * @requires  modules/breadcrumbs
+             *
+             * @function Highcharts.Breadcrumbs#renderSingleButton
+             * @param {Highcharts.Breadcrumbs} this
+             *        Breadcrumbs class.
+             */
+            alignBreadcrumbsGroup(xOffset) {
+                const breadcrumbs = this;
+                if (breadcrumbs.group) {
+                    const breadcrumbsOptions = breadcrumbs.options, buttonTheme = breadcrumbsOptions.buttonTheme, positionOptions = breadcrumbsOptions.position, alignTo = (breadcrumbsOptions.relativeTo === 'chart' ||
+                        breadcrumbsOptions.relativeTo === 'spacingBox' ?
+                        void 0 :
+                        'plotBox'), bBox = breadcrumbs.group.getBBox(), additionalSpace = 2 * (buttonTheme.padding || 0) +
+                        breadcrumbsOptions.buttonSpacing;
+                    // Store positionOptions
+                    positionOptions.width = bBox.width + additionalSpace;
+                    positionOptions.height = bBox.height + additionalSpace;
+                    const newPositions = merge(positionOptions);
+                    // Add x offset if specified.
+                    if (xOffset) {
+                        newPositions.x += xOffset;
+                    }
+                    if (breadcrumbs.options.rtl) {
+                        newPositions.x += positionOptions.width;
+                    }
+                    newPositions.y = pick(newPositions.y, this.yOffset, 0);
+                    breadcrumbs.group.align(newPositions, true, alignTo);
+                }
+            }
+            /**
+             * Render a button.
+             *
+             * @requires  modules/breadcrumbs
+             *
+             * @function Highcharts.Breadcrumbs#renderButton
+             * @param {Highcharts.Breadcrumbs} this
+             *        Breadcrumbs class.
+             * @param {Highcharts.Breadcrumbs} breadcrumb
+             *        Current breadcrumb
+             * @param {Highcharts.Breadcrumbs} posX
+             *        Initial horizontal position
+             * @param {Highcharts.Breadcrumbs} posY
+             *        Initial vertical position
+             * @return {SVGElement|void}
+             *        Returns the SVG button
+             */
+            renderButton(breadcrumb, posX, posY) {
+                const breadcrumbs = this, chart = this.chart, breadcrumbsOptions = breadcrumbs.options, buttonTheme = merge(breadcrumbsOptions.buttonTheme);
+                const button = chart.renderer
+                    .button(breadcrumbs.getButtonText(breadcrumb), posX, posY, function (e) {
+                    // Extract events from button object and call
+                    const buttonEvents = breadcrumbsOptions.events &&
+                        breadcrumbsOptions.events.click;
+                    let callDefaultEvent;
+                    if (buttonEvents) {
+                        callDefaultEvent = buttonEvents.call(breadcrumbs, e, breadcrumb);
+                    }
+                    // (difference in behaviour of showFullPath and drillUp)
+                    if (callDefaultEvent !== false) {
+                        // For single button we are not going to the button
+                        // level, but the one level up
+                        if (!breadcrumbsOptions.showFullPath) {
+                            e.newLevel = breadcrumbs.level - 1;
+                        }
+                        else {
+                            e.newLevel = breadcrumb.level;
+                        }
+                        fireEvent(breadcrumbs, 'up', e);
+                    }
+                }, buttonTheme)
+                    .addClass('highcharts-breadcrumbs-button')
+                    .add(breadcrumbs.group);
+                if (!chart.styledMode) {
+                    button.attr(breadcrumbsOptions.style);
+                }
+                return button;
+            }
+            /**
+             * Render a separator.
+             *
+             * @requires  modules/breadcrumbs
+             *
+             * @function Highcharts.Breadcrumbs#renderSeparator
+             * @param {Highcharts.Breadcrumbs} this
+             *        Breadcrumbs class.
+             * @param {Highcharts.Breadcrumbs} posX
+             *        Initial horizontal position
+             * @param {Highcharts.Breadcrumbs} posY
+             *        Initial vertical position
+             * @return {Highcharts.SVGElement}
+             *        Returns the SVG button
+             */
+            renderSeparator(posX, posY) {
+                const breadcrumbs = this, chart = this.chart, breadcrumbsOptions = breadcrumbs.options, separatorOptions = breadcrumbsOptions.separator;
+                const separator = chart.renderer
+                    .label(separatorOptions.text, posX, posY, void 0, void 0, void 0, false)
+                    .addClass('highcharts-breadcrumbs-separator')
+                    .add(breadcrumbs.group);
+                if (!chart.styledMode) {
+                    separator.css(separatorOptions.style);
+                }
+                return separator;
+            }
+            /**
+             * Update.
+             * @function Highcharts.Breadcrumbs#update
+             *
+             * @requires  modules/breadcrumbs
+             *
+             * @param {Highcharts.Breadcrumbs} this
+             *        Breadcrumbs class.
+             * @param {Highcharts.BreadcrumbsOptions} options
+             *        Breadcrumbs class.
+             * @param {boolean} redraw
+             *        Redraw flag
+             */
+            update(options) {
+                merge(true, this.options, options);
+                this.destroy();
+                this.isDirty = true;
+            }
+            /**
+             * Update button text when the showFullPath set to false.
+             * @function Highcharts.Breadcrumbs#updateSingleButton
+             *
+             * @requires  modules/breadcrumbs
+             *
+             * @param {Highcharts.Breadcrumbs} this
+             *        Breadcrumbs class.
+             */
+            updateSingleButton() {
+                const chart = this.chart, currentBreadcrumb = this.list[this.level - 1];
+                if (chart.drillUpButton) {
+                    chart.drillUpButton.attr({
+                        text: this.getButtonText(currentBreadcrumb)
                     });
                 }
             }
-            /* eslint-enable valid-jsdoc */
-        };
+            /**
+             * Destroy the chosen breadcrumbs group
+             *
+             * @requires  modules/breadcrumbs
+             *
+             * @function Highcharts.Breadcrumbs#destroy
+             * @param {Highcharts.Breadcrumbs} this
+             *        Breadcrumbs class.
+             */
+            destroy() {
+                this.destroySingleButton();
+                // Destroy elements one by one. It's necessary because
+                // g().destroy() does not remove added HTML
+                this.destroyListElements(true);
+                // Then, destroy the group itself.
+                if (this.group) {
+                    this.group.destroy();
+                }
+                this.group = void 0;
+            }
+            /**
+             * Destroy the elements' buttons and separators.
+             *
+             * @requires  modules/breadcrumbs
+             *
+             * @function Highcharts.Breadcrumbs#destroyListElements
+             * @param {Highcharts.Breadcrumbs} this
+             *        Breadcrumbs class.
+             */
+            destroyListElements(force) {
+                const elementList = this.elementList;
+                objectEach(elementList, (element, level) => {
+                    if (force ||
+                        !elementList[level].updated) {
+                        element = elementList[level];
+                        element.button && element.button.destroy();
+                        element.separator && element.separator.destroy();
+                        delete element.button;
+                        delete element.separator;
+                        delete elementList[level];
+                    }
+                });
+                if (force) {
+                    this.elementList = {};
+                }
+            }
+            /**
+             * Destroy the single button if exists.
+             *
+             * @requires  modules/breadcrumbs
+             *
+             * @function Highcharts.Breadcrumbs#destroySingleButton
+             * @param {Highcharts.Breadcrumbs} this
+             *        Breadcrumbs class.
+             */
+            destroySingleButton() {
+                if (this.chart.drillUpButton) {
+                    this.chart.drillUpButton.destroy();
+                    this.chart.drillUpButton = void 0;
+                }
+            }
+            /**
+             * Reset state for all buttons in elementList.
+             *
+             * @requires  modules/breadcrumbs
+             *
+             * @function Highcharts.Breadcrumbs#resetElementListState
+             * @param {Highcharts.Breadcrumbs} this
+             *        Breadcrumbs class.
+             */
+            resetElementListState() {
+                objectEach(this.elementList, (element) => {
+                    element.updated = false;
+                });
+            }
+            /**
+             * Update rendered elements inside the elementList.
+             *
+             * @requires  modules/breadcrumbs
+             *
+             * @function Highcharts.Breadcrumbs#updateListElements
+             *
+             * @param {Highcharts.Breadcrumbs} this
+             *        Breadcrumbs class.
+             */
+            updateListElements() {
+                const breadcrumbs = this, elementList = breadcrumbs.elementList, buttonSpacing = breadcrumbs.options.buttonSpacing, posY = buttonSpacing, list = breadcrumbs.list, rtl = breadcrumbs.options.rtl, rtlFactor = rtl ? -1 : 1, updateXPosition = function (element, spacing) {
+                    return rtlFactor * element.getBBox().width +
+                        rtlFactor * spacing;
+                }, adjustToRTL = function (element, posX, posY) {
+                    element.translate(posX - element.getBBox().width, posY);
+                };
+                // Initial position for calculating the breadcrumbs group.
+                let posX = breadcrumbs.group ?
+                    updateXPosition(breadcrumbs.group, buttonSpacing) :
+                    buttonSpacing, currentBreadcrumb, breadcrumb;
+                for (let i = 0, iEnd = list.length; i < iEnd; ++i) {
+                    const isLast = i === iEnd - 1;
+                    let button, separator;
+                    breadcrumb = list[i];
+                    if (elementList[breadcrumb.level]) {
+                        currentBreadcrumb = elementList[breadcrumb.level];
+                        button = currentBreadcrumb.button;
+                        // Render a separator if it was not created before.
+                        if (!currentBreadcrumb.separator &&
+                            !isLast) {
+                            // Add spacing for the next separator
+                            posX += rtlFactor * buttonSpacing;
+                            currentBreadcrumb.separator =
+                                breadcrumbs.renderSeparator(posX, posY);
+                            if (rtl) {
+                                adjustToRTL(currentBreadcrumb.separator, posX, posY);
+                            }
+                            posX += updateXPosition(currentBreadcrumb.separator, buttonSpacing);
+                        }
+                        else if (currentBreadcrumb.separator &&
+                            isLast) {
+                            currentBreadcrumb.separator.destroy();
+                            delete currentBreadcrumb.separator;
+                        }
+                        elementList[breadcrumb.level].updated = true;
+                    }
+                    else {
+                        // Render a button.
+                        button = breadcrumbs.renderButton(breadcrumb, posX, posY);
+                        if (rtl) {
+                            adjustToRTL(button, posX, posY);
+                        }
+                        posX += updateXPosition(button, buttonSpacing);
+                        // Render a separator.
+                        if (!isLast) {
+                            separator = breadcrumbs.renderSeparator(posX, posY);
+                            if (rtl) {
+                                adjustToRTL(separator, posX, posY);
+                            }
+                            posX += updateXPosition(separator, buttonSpacing);
+                        }
+                        elementList[breadcrumb.level] = {
+                            button,
+                            separator,
+                            updated: true
+                        };
+                    }
+                    if (button) {
+                        button.setState(isLast ? 2 : 0);
+                    }
+                }
+            }
+        }
+        /* *
+         *
+         *  Static Properties
+         *
+         * */
+        Breadcrumbs.defaultOptions = BreadcrumbsDefaults.options;
+        /* *
+         *
+         *  Default Export
+         *
+         * */
+        /* *
+         *
+         *  API Declarations
+         *
+         * */
         /**
-         * @private
-         * @mixin Highcharts.colorMapSeriesMixin
+         * Callback function to react on button clicks.
+         *
+         * @callback Highcharts.BreadcrumbsClickCallbackFunction
+         *
+         * @param {Highcharts.Event} event
+         * Event.
+         *
+         * @param {Highcharts.BreadcrumbOptions} options
+         * Breadcrumb options.
+         *
+         * @param {global.Event} e
+         * Event arguments.
          */
-        var colorMapSeriesMixin = {
-                pointArrayMap: ['value'],
-                axisTypes: ['xAxis', 'yAxis', 'colorAxis'],
-                trackerGroups: ['group', 'markerGroup', 'dataLabelsGroup'],
-                getSymbol: noop,
-                parallelArrays: ['x', 'y', 'value'],
+        /**
+         * Callback function to format the breadcrumb text from scratch.
+         *
+         * @callback Highcharts.BreadcrumbsFormatterCallbackFunction
+         *
+         * @param {Highcharts.Event} event
+         * Event.
+         *
+         * @param {Highcharts.BreadcrumbOptions} options
+         * Breadcrumb options.
+         *
+         * @return {string}
+         * Formatted text or false
+         */
+        /**
+         * Options for the one breadcrumb.
+         *
+         * @interface Highcharts.BreadcrumbOptions
+         */
+        /**
+         * Level connected to a specific breadcrumb.
+         * @name Highcharts.BreadcrumbOptions#level
+         * @type {number}
+         */
+        /**
+         * Options for series or point connected to a specific breadcrumb.
+         * @name Highcharts.BreadcrumbOptions#levelOptions
+         * @type {SeriesOptions|PointOptionsObject}
+         */
+        /**
+         * Options for aligning breadcrumbs group.
+         *
+         * @interface Highcharts.BreadcrumbsAlignOptions
+         */
+        /**
+         * Align of a Breadcrumb group.
+         * @default right
+         * @name Highcharts.BreadcrumbsAlignOptions#align
+         * @type {AlignValue}
+         */
+        /**
+         * Vertical align of a Breadcrumb group.
+         * @default top
+         * @name Highcharts.BreadcrumbsAlignOptions#verticalAlign
+         * @type {VerticalAlignValue}
+         */
+        /**
+         * X offset of a Breadcrumbs group.
+         * @name Highcharts.BreadcrumbsAlignOptions#x
+         * @type {number}
+         */
+        /**
+         * Y offset of a Breadcrumbs group.
+         * @name Highcharts.BreadcrumbsAlignOptions#y
+         * @type {number}
+         */
+        /**
+         * Options for all breadcrumbs.
+         *
+         * @interface Highcharts.BreadcrumbsOptions
+         */
+        /**
+         * Button theme.
+         * @name Highcharts.BreadcrumbsOptions#buttonTheme
+         * @type { SVGAttributes | undefined }
+         */
+        (''); // Keeps doclets above in JS file
+
+        return Breadcrumbs;
+    });
+    _registerModule(_modules, 'Series/ColorMapComposition.js', [_modules['Core/Series/SeriesRegistry.js'], _modules['Core/Renderer/SVG/SVGElement.js'], _modules['Core/Utilities.js']], function (SeriesRegistry, SVGElement, U) {
+        /* *
+         *
+         *  (c) 2010-2024 Torstein Honsi
+         *
+         *  License: www.highcharts.com/license
+         *
+         *  !!!!!!! SOURCE GETS TRANSPILED BY TYPESCRIPT. EDIT TS FILE ONLY. !!!!!!!
+         *
+         * */
+        const { column: { prototype: columnProto } } = SeriesRegistry.seriesTypes;
+        const { addEvent, defined } = U;
+        /* *
+         *
+         *  Composition
+         *
+         * */
+        var ColorMapComposition;
+        (function (ColorMapComposition) {
+            /* *
+             *
+             *  Constants
+             *
+             * */
+            ColorMapComposition.pointMembers = {
+                dataLabelOnNull: true,
+                moveToTopOnHover: true,
+                isValid: pointIsValid
+            };
+            ColorMapComposition.seriesMembers = {
                 colorKey: 'value',
-                pointAttribs: seriesTypes.column.prototype.pointAttribs,
-                /* eslint-disable valid-jsdoc */
-                /**
-                 * Get the color attibutes to apply on the graphic
-                 * @private
-                 * @function Highcharts.colorMapSeriesMixin.colorAttribs
-                 * @param {Highcharts.Point} point
-                 * @return {Highcharts.SVGAttributes}
-                 */
-                colorAttribs: function (point) {
-                    var ret = {};
-                if (defined(point.color)) {
+                axisTypes: ['xAxis', 'yAxis', 'colorAxis'],
+                parallelArrays: ['x', 'y', 'value'],
+                pointArrayMap: ['value'],
+                trackerGroups: ['group', 'markerGroup', 'dataLabelsGroup'],
+                colorAttribs: seriesColorAttribs,
+                pointAttribs: columnProto.pointAttribs
+            };
+            /* *
+             *
+             *  Functions
+             *
+             * */
+            /**
+             * @private
+             */
+            function compose(SeriesClass) {
+                const PointClass = SeriesClass.prototype.pointClass;
+                addEvent(PointClass, 'afterSetState', onPointAfterSetState);
+                return SeriesClass;
+            }
+            ColorMapComposition.compose = compose;
+            /**
+             * Move points to the top of the z-index order when hovered.
+             * @private
+             */
+            function onPointAfterSetState(e) {
+                const point = this, series = point.series, renderer = series.chart.renderer;
+                if (point.moveToTopOnHover && point.graphic) {
+                    if (!series.stateMarkerGraphic) {
+                        // Create a `use` element and add it to the end of the group,
+                        // which would make it appear on top of the other elements. This
+                        // deals with z-index without reordering DOM elements (#13049).
+                        series.stateMarkerGraphic = new SVGElement(renderer, 'use')
+                            .css({
+                            pointerEvents: 'none'
+                        })
+                            .add(point.graphic.parentGroup);
+                    }
+                    if (e?.state === 'hover') {
+                        // Give the graphic DOM element the same id as the Point
+                        // instance
+                        point.graphic.attr({
+                            id: this.id
+                        });
+                        series.stateMarkerGraphic.attr({
+                            href: `${renderer.url}#${this.id}`,
+                            visibility: 'visible'
+                        });
+                    }
+                    else {
+                        series.stateMarkerGraphic.attr({
+                            href: ''
+                        });
+                    }
+                }
+            }
+            /**
+             * Color points have a value option that determines whether or not it is
+             * a null point
+             * @private
+             */
+            function pointIsValid() {
+                return (this.value !== null &&
+                    this.value !== Infinity &&
+                    this.value !== -Infinity &&
+                    // Undefined is allowed, but NaN is not (#17279)
+                    (this.value === void 0 || !isNaN(this.value)));
+            }
+            /**
+             * Get the color attributes to apply on the graphic
+             * @private
+             * @function Highcharts.colorMapSeriesMixin.colorAttribs
+             * @param {Highcharts.Point} point
+             * @return {Highcharts.SVGAttributes}
+             *         The SVG attributes
+             */
+            function seriesColorAttribs(point) {
+                const ret = {};
+                if (defined(point.color) &&
+                    (!point.state || point.state === 'normal') // #15746
+                ) {
                     ret[this.colorProp || 'fill'] = point.color;
                 }
                 return ret;
             }
-        };
-        var exports = {
-                colorMapPointMixin: colorMapPointMixin,
-                colorMapSeriesMixin: colorMapSeriesMixin
-            };
-
-        return exports;
-    });
-    _registerModule(_modules, 'Mixins/DrawPoint.js', [], function () {
+        })(ColorMapComposition || (ColorMapComposition = {}));
         /* *
          *
-         *  !!!!!!! SOURCE GETS TRANSPILED BY TYPESCRIPT. EDIT TS FILE ONLY. !!!!!!!
+         *  Default Export
          *
          * */
-        var isFn = function (x) {
-                return typeof x === 'function';
-        };
-        /* eslint-disable no-invalid-this, valid-jsdoc */
-        /**
-         * Handles the drawing of a component.
-         * Can be used for any type of component that reserves the graphic property, and
-         * provides a shouldDraw on its context.
-         *
-         * @private
-         * @function draw
-         * @param {DrawPointParams} params
-         *        Parameters.
-         *
-         * @todo add type checking.
-         * @todo export this function to enable usage
-         */
-        var draw = function draw(params) {
-                var _a;
-            var component = this,
-                graphic = component.graphic,
-                animatableAttribs = params.animatableAttribs,
-                onComplete = params.onComplete,
-                css = params.css,
-                renderer = params.renderer,
-                animation = (_a = component.series) === null || _a === void 0 ? void 0 : _a.options.animation;
-            if (component.shouldDraw()) {
-                if (!graphic) {
-                    component.graphic = graphic =
-                        renderer[params.shapeType](params.shapeArgs)
-                            .add(params.group);
-                }
-                graphic
-                    .css(css)
-                    .attr(params.attribs)
-                    .animate(animatableAttribs, params.isNew ? false : animation, onComplete);
-            }
-            else if (graphic) {
-                var destroy = function () {
-                        component.graphic = graphic = graphic.destroy();
-                    if (isFn(onComplete)) {
-                        onComplete();
-                    }
-                };
-                // animate only runs complete callback if something was animated.
-                if (Object.keys(animatableAttribs).length) {
-                    graphic.animate(animatableAttribs, void 0, function () {
-                        destroy();
-                    });
-                }
-                else {
-                    destroy();
-                }
-            }
-        };
-        /**
-         * An extended version of draw customized for points.
-         * It calls additional methods that is expected when rendering a point.
-         * @private
-         * @param {Highcharts.Dictionary<any>} params Parameters
-         */
-        var drawPoint = function drawPoint(params) {
-                var point = this,
-            attribs = params.attribs = params.attribs || {};
-            // Assigning class in dot notation does go well in IE8
-            // eslint-disable-next-line dot-notation
-            attribs['class'] = point.getClassName();
-            // Call draw to render component
-            draw.call(point, params);
-        };
-        var drawPointModule = {
-                draw: draw,
-                drawPoint: drawPoint,
-                isFn: isFn
-            };
 
-        return drawPointModule;
+        return ColorMapComposition;
     });
-    _registerModule(_modules, 'Mixins/TreeSeries.js', [_modules['Core/Color/Color.js'], _modules['Core/Utilities.js']], function (Color, U) {
+    _registerModule(_modules, 'Series/Treemap/TreemapAlgorithmGroup.js', [], function () {
         /* *
          *
-         *  !!!!!!! SOURCE GETS TRANSPILED BY TYPESCRIPT. EDIT TS FILE ONLY. !!!!!!!
-         *
-         * */
-        var extend = U.extend,
-            isArray = U.isArray,
-            isNumber = U.isNumber,
-            isObject = U.isObject,
-            merge = U.merge,
-            pick = U.pick;
-        var isBoolean = function (x) {
-                return typeof x === 'boolean';
-        }, isFn = function (x) {
-            return typeof x === 'function';
-        };
-        /* eslint-disable valid-jsdoc */
-        /**
-         * @todo Combine buildTree and buildNode with setTreeValues
-         * @todo Remove logic from Treemap and make it utilize this mixin.
-         * @private
-         */
-        var setTreeValues = function setTreeValues(tree,
-            options) {
-                var before = options.before,
-            idRoot = options.idRoot,
-            mapIdToNode = options.mapIdToNode,
-            nodeRoot = mapIdToNode[idRoot],
-            levelIsConstant = (isBoolean(options.levelIsConstant) ?
-                    options.levelIsConstant :
-                    true),
-            points = options.points,
-            point = points[tree.i],
-            optionsPoint = point && point.options || {},
-            childrenTotal = 0,
-            children = [],
-            value;
-            extend(tree, {
-                levelDynamic: tree.level - (levelIsConstant ? 0 : nodeRoot.level),
-                name: pick(point && point.name, ''),
-                visible: (idRoot === tree.id ||
-                    (isBoolean(options.visible) ? options.visible : false))
-            });
-            if (isFn(before)) {
-                tree = before(tree, options);
-            }
-            // First give the children some values
-            tree.children.forEach(function (child, i) {
-                var newOptions = extend({},
-                    options);
-                extend(newOptions, {
-                    index: i,
-                    siblings: tree.children.length,
-                    visible: tree.visible
-                });
-                child = setTreeValues(child, newOptions);
-                children.push(child);
-                if (child.visible) {
-                    childrenTotal += child.val;
-                }
-            });
-            tree.visible = childrenTotal > 0 || tree.visible;
-            // Set the values
-            value = pick(optionsPoint.value, childrenTotal);
-            extend(tree, {
-                children: children,
-                childrenTotal: childrenTotal,
-                isLeaf: tree.visible && !childrenTotal,
-                val: value
-            });
-            return tree;
-        };
-        /**
-         * @private
-         */
-        var getColor = function getColor(node,
-            options) {
-                var index = options.index,
-            mapOptionsToLevel = options.mapOptionsToLevel,
-            parentColor = options.parentColor,
-            parentColorIndex = options.parentColorIndex,
-            series = options.series,
-            colors = options.colors,
-            siblings = options.siblings,
-            points = series.points,
-            getColorByPoint,
-            chartOptionsChart = series.chart.options.chart,
-            point,
-            level,
-            colorByPoint,
-            colorIndexByPoint,
-            color,
-            colorIndex;
-            /**
-             * @private
-             */
-            function variation(color) {
-                var colorVariation = level && level.colorVariation;
-                if (colorVariation) {
-                    if (colorVariation.key === 'brightness') {
-                        return Color.parse(color).brighten(colorVariation.to * (index / siblings)).get();
-                    }
-                }
-                return color;
-            }
-            if (node) {
-                point = points[node.i];
-                level = mapOptionsToLevel[node.level] || {};
-                getColorByPoint = point && level.colorByPoint;
-                if (getColorByPoint) {
-                    colorIndexByPoint = point.index % (colors ?
-                        colors.length :
-                        chartOptionsChart.colorCount);
-                    colorByPoint = colors && colors[colorIndexByPoint];
-                }
-                // Select either point color, level color or inherited color.
-                if (!series.chart.styledMode) {
-                    color = pick(point && point.options.color, level && level.color, colorByPoint, parentColor && variation(parentColor), series.color);
-                }
-                colorIndex = pick(point && point.options.colorIndex, level && level.colorIndex, colorIndexByPoint, parentColorIndex, options.colorIndex);
-            }
-            return {
-                color: color,
-                colorIndex: colorIndex
-            };
-        };
-        /**
-         * Creates a map from level number to its given options.
-         *
-         * @private
-         * @function getLevelOptions
-         * @param {object} params
-         *        Object containing parameters.
-         *        - `defaults` Object containing default options. The default options
-         *           are merged with the userOptions to get the final options for a
-         *           specific level.
-         *        - `from` The lowest level number.
-         *        - `levels` User options from series.levels.
-         *        - `to` The highest level number.
-         * @return {Highcharts.Dictionary<object>|null}
-         *         Returns a map from level number to its given options.
-         */
-        var getLevelOptions = function getLevelOptions(params) {
-                var result = null,
-            defaults,
-            converted,
-            i,
-            from,
-            to,
-            levels;
-            if (isObject(params)) {
-                result = {};
-                from = isNumber(params.from) ? params.from : 1;
-                levels = params.levels;
-                converted = {};
-                defaults = isObject(params.defaults) ? params.defaults : {};
-                if (isArray(levels)) {
-                    converted = levels.reduce(function (obj, item) {
-                        var level,
-                            levelIsConstant,
-                            options;
-                        if (isObject(item) && isNumber(item.level)) {
-                            options = merge({}, item);
-                            levelIsConstant = (isBoolean(options.levelIsConstant) ?
-                                options.levelIsConstant :
-                                defaults.levelIsConstant);
-                            // Delete redundant properties.
-                            delete options.levelIsConstant;
-                            delete options.level;
-                            // Calculate which level these options apply to.
-                            level = item.level + (levelIsConstant ? 0 : from - 1);
-                            if (isObject(obj[level])) {
-                                extend(obj[level], options);
-                            }
-                            else {
-                                obj[level] = options;
-                            }
-                        }
-                        return obj;
-                    }, {});
-                }
-                to = isNumber(params.to) ? params.to : 1;
-                for (i = 0; i <= to; i++) {
-                    result[i] = merge({}, defaults, isObject(converted[i]) ? converted[i] : {});
-                }
-            }
-            return result;
-        };
-        /**
-         * Update the rootId property on the series. Also makes sure that it is
-         * accessible to exporting.
-         *
-         * @private
-         * @function updateRootId
-         *
-         * @param {object} series
-         *        The series to operate on.
-         *
-         * @return {string}
-         *         Returns the resulting rootId after update.
-         */
-        var updateRootId = function (series) {
-                var rootId,
-            options;
-            if (isObject(series)) {
-                // Get the series options.
-                options = isObject(series.options) ? series.options : {};
-                // Calculate the rootId.
-                rootId = pick(series.rootNode, options.rootId, '');
-                // Set rootId on series.userOptions to pick it up in exporting.
-                if (isObject(series.userOptions)) {
-                    series.userOptions.rootId = rootId;
-                }
-                // Set rootId on series to pick it up on next update.
-                series.rootNode = rootId;
-            }
-            return rootId;
-        };
-        var result = {
-                getColor: getColor,
-                getLevelOptions: getLevelOptions,
-                setTreeValues: setTreeValues,
-                updateRootId: updateRootId
-            };
-
-        return result;
-    });
-    _registerModule(_modules, 'Series/TreemapSeries.js', [_modules['Core/Series/Series.js'], _modules['Core/Color/Color.js'], _modules['Mixins/ColorMapSeries.js'], _modules['Mixins/DrawPoint.js'], _modules['Core/Globals.js'], _modules['Mixins/LegendSymbol.js'], _modules['Core/Series/Point.js'], _modules['Mixins/TreeSeries.js'], _modules['Core/Utilities.js']], function (BaseSeries, Color, ColorMapMixin, DrawPointMixin, H, LegendSymbolMixin, Point, TreeSeriesMixin, U) {
-        /* *
-         *
-         *  (c) 2014-2020 Highsoft AS
+         *  (c) 2014-2024 Highsoft AS
          *
          *  Authors: Jon Arild Nygard / Oystein Moseng
          *
@@ -437,60 +1148,324 @@
          *  !!!!!!! SOURCE GETS TRANSPILED BY TYPESCRIPT. EDIT TS FILE ONLY. !!!!!!!
          *
          * */
-        var seriesTypes = BaseSeries.seriesTypes;
-        var color = Color.parse;
-        var colorMapSeriesMixin = ColorMapMixin.colorMapSeriesMixin;
-        var drawPoint = DrawPointMixin.drawPoint;
-        var noop = H.noop;
-        var getColor = TreeSeriesMixin.getColor,
-            getLevelOptions = TreeSeriesMixin.getLevelOptions,
-            updateRootId = TreeSeriesMixin.updateRootId;
-        var addEvent = U.addEvent,
-            correctFloat = U.correctFloat,
-            defined = U.defined,
-            error = U.error,
-            extend = U.extend,
-            fireEvent = U.fireEvent,
-            isArray = U.isArray,
-            isNumber = U.isNumber,
-            isObject = U.isObject,
-            isString = U.isString,
-            merge = U.merge,
-            objectEach = U.objectEach,
-            pick = U.pick,
-            stableSort = U.stableSort;
-        /* eslint-disable no-invalid-this */
-        var AXIS_MAX = 100;
-        // @todo Similar to eachObject, this function is likely redundant
-        var isBoolean = function (x) {
-                return typeof x === 'boolean';
-        }, Series = H.Series, 
-        // @todo Similar to recursive, this function is likely redundant
-        eachObject = function (list, func, context) {
-            context = context || this;
-            objectEach(list, function (val, key) {
-                func.call(context, val, key, list);
-            });
-        }, 
-        // @todo find correct name for this function.
-        // @todo Similar to reduce, this function is likely redundant
-        recursive = function (item, func, context) {
-            var next;
-            context = context || this;
-            next = func.call(context, item);
-            if (next !== false) {
-                recursive(next, func, context);
-            }
-        }, treemapAxisDefaultValues = false;
-        /* eslint-enable no-invalid-this */
-        /**
-         * @private
-         * @class
-         * @name Highcharts.seriesTypes.treemap
+        /* *
          *
-         * @augments Highcharts.Series
+         *  Class
+         *
+         * */
+        class TreemapAlgorithmGroup {
+            /* *
+             *
+             *  Constructor
+             *
+             * */
+            constructor(h, w, d, p) {
+                this.height = h;
+                this.width = w;
+                this.plot = p;
+                this.direction = d;
+                this.startDirection = d;
+                this.total = 0;
+                this.nW = 0;
+                this.lW = 0;
+                this.nH = 0;
+                this.lH = 0;
+                this.elArr = [];
+                this.lP = {
+                    total: 0,
+                    lH: 0,
+                    nH: 0,
+                    lW: 0,
+                    nW: 0,
+                    nR: 0,
+                    lR: 0,
+                    aspectRatio: function (w, h) {
+                        return Math.max((w / h), (h / w));
+                    }
+                };
+            }
+            /* *
+             *
+             *  Functions
+             *
+             * */
+            addElement(el) {
+                this.lP.total = this.elArr[this.elArr.length - 1];
+                this.total = this.total + el;
+                if (this.direction === 0) {
+                    // Calculate last point old aspect ratio
+                    this.lW = this.nW;
+                    this.lP.lH = this.lP.total / this.lW;
+                    this.lP.lR = this.lP.aspectRatio(this.lW, this.lP.lH);
+                    // Calculate last point new aspect ratio
+                    this.nW = this.total / this.height;
+                    this.lP.nH = this.lP.total / this.nW;
+                    this.lP.nR = this.lP.aspectRatio(this.nW, this.lP.nH);
+                }
+                else {
+                    // Calculate last point old aspect ratio
+                    this.lH = this.nH;
+                    this.lP.lW = this.lP.total / this.lH;
+                    this.lP.lR = this.lP.aspectRatio(this.lP.lW, this.lH);
+                    // Calculate last point new aspect ratio
+                    this.nH = this.total / this.width;
+                    this.lP.nW = this.lP.total / this.nH;
+                    this.lP.nR = this.lP.aspectRatio(this.lP.nW, this.nH);
+                }
+                this.elArr.push(el);
+            }
+            reset() {
+                this.nW = 0;
+                this.lW = 0;
+                this.elArr = [];
+                this.total = 0;
+            }
+        }
+        /* *
+         *
+         *  Default Export
+         *
+         * */
+
+        return TreemapAlgorithmGroup;
+    });
+    _registerModule(_modules, 'Series/Treemap/TreemapNode.js', [], function () {
+        /* *
+         *
+         *  (c) 2010-2024 Pawel Lysy
+         *
+         *  License: www.highcharts.com/license
+         *
+         *  !!!!!!! SOURCE GETS TRANSPILED BY TYPESCRIPT. EDIT TS FILE ONLY. !!!!!!!
+         *
+         * */
+        /* *
+         *
+         *  Class
+         *
+         * */
+        class TreemapNode {
+            constructor() {
+                /* *
+                 *
+                 *  Properties
+                 *
+                 * */
+                this.childrenTotal = 0;
+                this.visible = false;
+            }
+            /* *
+             *
+             *  Functions
+             *
+             * */
+            init(id, i, children, height, level, series, parent) {
+                this.id = id;
+                this.i = i;
+                this.children = children;
+                this.height = height;
+                this.level = level;
+                this.series = series;
+                this.parent = parent;
+                return this;
+            }
+        }
+        /* *
+         *
+         *  Default Export
+         *
+         * */
+
+        return TreemapNode;
+    });
+    _registerModule(_modules, 'Series/DrawPointUtilities.js', [], function () {
+        /* *
+         *
+         *  !!!!!!! SOURCE GETS TRANSPILED BY TYPESCRIPT. EDIT TS FILE ONLY. !!!!!!!
+         *
+         * */
+        /* *
+         *
+         *  Functions
+         *
+         * */
+        /**
+         * Handles the drawing of a component.
+         * Can be used for any type of component that reserves the graphic property,
+         * and provides a shouldDraw on its context.
+         *
+         * @private
+         *
+         * @todo add type checking.
+         * @todo export this function to enable usage
          */
-        BaseSeries.seriesType('treemap', 'scatter'
+        function draw(point, params) {
+            const { animatableAttribs, onComplete, css, renderer } = params;
+            const animation = (point.series && point.series.chart.hasRendered) ?
+                // Chart-level animation on updates
+                void 0 :
+                // Series-level animation on new points
+                (point.series &&
+                    point.series.options.animation);
+            let graphic = point.graphic;
+            params.attribs = {
+                ...params.attribs,
+                'class': point.getClassName()
+            } || {};
+            if ((point.shouldDraw())) {
+                if (!graphic) {
+                    if (params.shapeType === 'text') {
+                        graphic = renderer.text();
+                    }
+                    else if (params.shapeType === 'image') {
+                        graphic = renderer.image(params.imageUrl || '')
+                            .attr(params.shapeArgs || {});
+                    }
+                    else {
+                        graphic = renderer[params.shapeType](params.shapeArgs || {});
+                    }
+                    point.graphic = graphic;
+                    graphic.add(params.group);
+                }
+                if (css) {
+                    graphic.css(css);
+                }
+                graphic
+                    .attr(params.attribs)
+                    .animate(animatableAttribs, params.isNew ? false : animation, onComplete);
+            }
+            else if (graphic) {
+                const destroy = () => {
+                    point.graphic = graphic = (graphic && graphic.destroy());
+                    if (typeof onComplete === 'function') {
+                        onComplete();
+                    }
+                };
+                // Animate only runs complete callback if something was animated.
+                if (Object.keys(animatableAttribs).length) {
+                    graphic.animate(animatableAttribs, void 0, () => destroy());
+                }
+                else {
+                    destroy();
+                }
+            }
+        }
+        /* *
+         *
+         *  Default Export
+         *
+         * */
+        const DrawPointUtilities = {
+            draw
+        };
+
+        return DrawPointUtilities;
+    });
+    _registerModule(_modules, 'Series/Treemap/TreemapPoint.js', [_modules['Series/DrawPointUtilities.js'], _modules['Core/Series/SeriesRegistry.js'], _modules['Core/Utilities.js']], function (DPU, SeriesRegistry, U) {
+        /* *
+         *
+         *  (c) 2014-2024 Highsoft AS
+         *
+         *  Authors: Jon Arild Nygard / Oystein Moseng
+         *
+         *  License: www.highcharts.com/license
+         *
+         *  !!!!!!! SOURCE GETS TRANSPILED BY TYPESCRIPT. EDIT TS FILE ONLY. !!!!!!!
+         *
+         * */
+        const { pie: { prototype: { pointClass: PiePoint } }, scatter: { prototype: { pointClass: ScatterPoint } } } = SeriesRegistry.seriesTypes;
+        const { extend, isNumber, pick } = U;
+        /* *
+         *
+         *  Class
+         *
+         * */
+        class TreemapPoint extends ScatterPoint {
+            constructor() {
+                /* *
+                 *
+                 *  Properties
+                 *
+                 * */
+                super(...arguments);
+                this.shapeType = 'rect';
+            }
+            /* *
+             *
+             *  Functions
+             *
+             * */
+            draw(params) {
+                DPU.draw(this, params);
+            }
+            getClassName() {
+                const series = this.series, options = series.options;
+                let className = super.getClassName();
+                // Above the current level
+                if (this.node.level <= series.nodeMap[series.rootNode].level) {
+                    className += ' highcharts-above-level';
+                }
+                else if (!this.node.isLeaf &&
+                    !pick(options.interactByLeaf, !options.allowTraversingTree)) {
+                    className += ' highcharts-internal-node-interactive';
+                }
+                else if (!this.node.isLeaf) {
+                    className += ' highcharts-internal-node';
+                }
+                return className;
+            }
+            /**
+             * A tree point is valid if it has han id too, assume it may be a parent
+             * item.
+             *
+             * @private
+             * @function Highcharts.Point#isValid
+             */
+            isValid() {
+                return Boolean(this.id || isNumber(this.value));
+            }
+            setState(state) {
+                super.setState.apply(this, arguments);
+                // Graphic does not exist when point is not visible.
+                if (this.graphic) {
+                    this.graphic.attr({
+                        zIndex: state === 'hover' ? 1 : 0
+                    });
+                }
+            }
+            shouldDraw() {
+                return isNumber(this.plotY) && this.y !== null;
+            }
+        }
+        extend(TreemapPoint.prototype, {
+            setVisible: PiePoint.prototype.setVisible
+        });
+        /* *
+         *
+         *  Default Export
+         *
+         * */
+
+        return TreemapPoint;
+    });
+    _registerModule(_modules, 'Series/Treemap/TreemapSeriesDefaults.js', [_modules['Core/Series/SeriesRegistry.js'], _modules['Core/Utilities.js']], function (SeriesRegistry, U) {
+        /* *
+         *
+         *  (c) 2014-2024 Highsoft AS
+         *
+         *  Authors: Jon Arild Nygard / Oystein Moseng
+         *
+         *  License: www.highcharts.com/license
+         *
+         *  !!!!!!! SOURCE GETS TRANSPILED BY TYPESCRIPT. EDIT TS FILE ONLY. !!!!!!!
+         *
+         * */
+        const { isString } = U;
+        /* *
+         *
+         *  API Options
+         *
+         * */
         /**
          * A treemap displays hierarchical data using nested rectangles. The data
          * can be laid out in varying ways depending on options.
@@ -499,12 +1474,12 @@
          *         Treemap
          *
          * @extends      plotOptions.scatter
-         * @excluding    dragDrop, marker, jitter, dataSorting
+         * @excluding    cluster, connectEnds, connectNulls, dataSorting, dragDrop, jitter, marker
          * @product      highcharts
          * @requires     modules/treemap
          * @optionparent plotOptions.treemap
          */
-        , {
+        const TreemapSeriesDefaults = {
             /**
              * When enabled the user can click on a point which is a parent and
              * zoom in on its children. Deprecated and replaced by
@@ -533,6 +1508,20 @@
             allowTraversingTree: false,
             animationLimit: 250,
             /**
+             * The border radius for each treemap item.
+             */
+            borderRadius: 0,
+            /**
+             * Options for the breadcrumbs, the navigation at the top leading the
+             * way up through the traversed levels.
+             *
+             *
+             * @since 10.0.0
+             * @product   highcharts
+             * @extends   navigation.breadcrumbs
+             * @apioption plotOptions.treemap.breadcrumbs
+             */
+            /**
              * When the series contains less points than the crop threshold, all
              * points are drawn, event if the points fall outside the visible plot
              * area at the current zoom. The advantage of drawing all points
@@ -554,10 +1543,11 @@
              * additional properties `newRootId`, `previousRootId`, `redraw` and
              * `trigger`.
              *
-             * @type {function}
-             * @default undefined
              * @sample {highcharts} highcharts/plotoptions/treemap-events-setrootnode/
              *         Alert update information on setRootNode event.
+             *
+             * @type {Function}
+             * @default undefined
              * @since 7.0.3
              * @product highcharts
              * @apioption plotOptions.treemap.events.setRootNode
@@ -627,10 +1617,9 @@
                 defer: false,
                 enabled: true,
                 formatter: function () {
-                    var point = this && this.point ?
-                            this.point :
-                            {},
-                        name = isString(point.name) ? point.name : '';
+                    const point = this && this.point ?
+                        this.point :
+                        {}, name = isString(point.name) ? point.name : '';
                     return name;
                 },
                 inside: true,
@@ -694,51 +1683,11 @@
              */
             levelIsConstant: true,
             /**
-             * Options for the button appearing when drilling down in a treemap.
-             * Deprecated and replaced by
-             * [traverseUpButton](#plotOptions.treemap.traverseUpButton).
+             * Options for the button appearing when traversing down in a treemap.
+             *
+             * Since v9.3.3 the `traverseUpButton` is replaced by `breadcrumbs`.
              *
              * @deprecated
-             */
-            drillUpButton: {
-                /**
-                 * The position of the button.
-                 *
-                 * @deprecated
-                 */
-                position: {
-                    /**
-                     * Vertical alignment of the button.
-                     *
-                     * @deprecated
-                     * @type      {Highcharts.VerticalAlignValue}
-                     * @default   top
-                     * @product   highcharts
-                     * @apioption plotOptions.treemap.drillUpButton.position.verticalAlign
-                     */
-                    /**
-                     * Horizontal alignment of the button.
-                     *
-                     * @deprecated
-                     * @type {Highcharts.AlignValue}
-                     */
-                    align: 'right',
-                    /**
-                     * Horizontal offset of the button.
-                     *
-                     * @deprecated
-                     */
-                    x: -10,
-                    /**
-                     * Vertical offset of the button.
-                     *
-                     * @deprecated
-                     */
-                    y: 10
-                }
-            },
-            /**
-             * Options for the button appearing when traversing down in a treemap.
              */
             traverseUpButton: {
                 /**
@@ -831,6 +1780,9 @@
              * @sample highcharts/demo/sunburst/
              *         Sunburst with color variation
              *
+             * @sample highcharts/series-treegraph/color-variation
+             *         Treegraph nodes with color variation
+             *
              * @since     6.0.0
              * @product   highcharts
              * @apioption plotOptions.treemap.levels.colorVariation
@@ -900,7 +1852,7 @@
              *
              * @type {Highcharts.ColorString}
              */
-            borderColor: '#e6e6e6',
+            borderColor: "#e6e6e6" /* Palette.neutralColor10 */,
             /**
              * The width of the border surrounding each tree map item.
              */
@@ -929,7 +1881,7 @@
                     /**
                      * The border color for the hovered state.
                      */
-                    borderColor: '#999999',
+                    borderColor: "#999999" /* Palette.neutralColor40 */,
                     /**
                      * Brightness for the hovered point. Defaults to 0 if the
                      * heatmap series is loaded first, otherwise 0.1.
@@ -937,7 +1889,7 @@
                      * @type    {number}
                      * @default undefined
                      */
-                    brightness: seriesTypes.heatmap ? 0 : 0.1,
+                    brightness: SeriesRegistry.seriesTypes.heatmap ? 0 : 0.1,
                     /**
                      * @extends plotOptions.heatmap.states.hover.halo
                      */
@@ -954,1075 +1906,9 @@
                      */
                     shadow: false
                 }
-            }
-            // Prototype members
-        }, {
-            pointArrayMap: ['value'],
-            directTouch: true,
-            optionalAxis: 'colorAxis',
-            getSymbol: noop,
-            parallelArrays: ['x', 'y', 'value', 'colorValue'],
-            colorKey: 'colorValue',
-            trackerGroups: ['group', 'dataLabelsGroup'],
-            /* eslint-disable no-invalid-this, valid-jsdoc */
-            /**
-             * Creates an object map from parent id to childrens index.
-             *
-             * @private
-             * @function Highcharts.Series#getListOfParents
-             *
-             * @param {Highcharts.SeriesTreemapDataOptions} [data]
-             *        List of points set in options.
-             *
-             * @param {Array<string>} [existingIds]
-             *        List of all point ids.
-             *
-             * @return {object}
-             *         Map from parent id to children index in data.
-             */
-            getListOfParents: function (data, existingIds) {
-                var arr = isArray(data) ? data : [],
-                    ids = isArray(existingIds) ? existingIds : [],
-                    listOfParents = arr.reduce(function (prev,
-                    curr,
-                    i) {
-                        var parent = pick(curr.parent, '');
-                    if (typeof prev[parent] === 'undefined') {
-                        prev[parent] = [];
-                    }
-                    prev[parent].push(i);
-                    return prev;
-                }, {
-                    '': [] // Root of tree
-                });
-                // If parent does not exist, hoist parent to root of tree.
-                eachObject(listOfParents, function (children, parent, list) {
-                    if ((parent !== '') && (ids.indexOf(parent) === -1)) {
-                        children.forEach(function (child) {
-                            list[''].push(child);
-                        });
-                        delete list[parent];
-                    }
-                });
-                return listOfParents;
             },
-            // Creates a tree structured object from the series points
-            getTree: function () {
-                var series = this,
-                    allIds = this.data.map(function (d) {
-                        return d.id;
-                }), parentList = series.getListOfParents(this.data, allIds);
-                series.nodeMap = {};
-                return series.buildNode('', -1, 0, parentList);
-            },
-            // Define hasData function for non-cartesian series.
-            // Returns true if the series has points at all.
-            hasData: function () {
-                return !!this.processedXData.length; // != 0
-            },
-            init: function (chart, options) {
-                var series = this,
-                    setOptionsEvent;
-                // If color series logic is loaded, add some properties
-                if (colorMapSeriesMixin) {
-                    this.colorAttribs = colorMapSeriesMixin.colorAttribs;
-                }
-                setOptionsEvent = addEvent(series, 'setOptions', function (event) {
-                    var options = event.userOptions;
-                    if (defined(options.allowDrillToNode) &&
-                        !defined(options.allowTraversingTree)) {
-                        options.allowTraversingTree = options.allowDrillToNode;
-                        delete options.allowDrillToNode;
-                    }
-                    if (defined(options.drillUpButton) &&
-                        !defined(options.traverseUpButton)) {
-                        options.traverseUpButton = options.drillUpButton;
-                        delete options.drillUpButton;
-                    }
-                });
-                Series.prototype.init.call(series, chart, options);
-                // Treemap's opacity is a different option from other series
-                delete series.opacity;
-                // Handle deprecated options.
-                series.eventsToUnbind.push(setOptionsEvent);
-                if (series.options.allowTraversingTree) {
-                    series.eventsToUnbind.push(addEvent(series, 'click', series.onClickDrillToNode));
-                }
-            },
-            buildNode: function (id, i, level, list, parent) {
-                var series = this,
-                    children = [],
-                    point = series.points[i],
-                    height = 0,
-                    node,
-                    child;
-                // Actions
-                ((list[id] || [])).forEach(function (i) {
-                    child = series.buildNode(series.points[i].id, i, (level + 1), list, id);
-                    height = Math.max(child.height + 1, height);
-                    children.push(child);
-                });
-                node = {
-                    id: id,
-                    i: i,
-                    children: children,
-                    height: height,
-                    level: level,
-                    parent: parent,
-                    visible: false // @todo move this to better location
-                };
-                series.nodeMap[node.id] = node;
-                if (point) {
-                    point.node = node;
-                }
-                return node;
-            },
-            setTreeValues: function (tree) {
-                var series = this,
-                    options = series.options,
-                    idRoot = series.rootNode,
-                    mapIdToNode = series.nodeMap,
-                    nodeRoot = mapIdToNode[idRoot],
-                    levelIsConstant = (isBoolean(options.levelIsConstant) ?
-                        options.levelIsConstant :
-                        true),
-                    childrenTotal = 0,
-                    children = [],
-                    val,
-                    point = series.points[tree.i];
-                // First give the children some values
-                tree.children.forEach(function (child) {
-                    child = series.setTreeValues(child);
-                    children.push(child);
-                    if (!child.ignore) {
-                        childrenTotal += child.val;
-                    }
-                });
-                // Sort the children
-                stableSort(children, function (a, b) {
-                    return (a.sortIndex || 0) - (b.sortIndex || 0);
-                });
-                // Set the values
-                val = pick(point && point.options.value, childrenTotal);
-                if (point) {
-                    point.value = val;
-                }
-                extend(tree, {
-                    children: children,
-                    childrenTotal: childrenTotal,
-                    // Ignore this node if point is not visible
-                    ignore: !(pick(point && point.visible, true) && (val > 0)),
-                    isLeaf: tree.visible && !childrenTotal,
-                    levelDynamic: (tree.level - (levelIsConstant ? 0 : nodeRoot.level)),
-                    name: pick(point && point.name, ''),
-                    sortIndex: pick(point && point.sortIndex, -val),
-                    val: val
-                });
-                return tree;
-            },
-            /**
-             * Recursive function which calculates the area for all children of a
-             * node.
-             *
-             * @private
-             * @function Highcharts.Series#calculateChildrenAreas
-             *
-             * @param {object} node
-             *        The node which is parent to the children.
-             *
-             * @param {object} area
-             *        The rectangular area of the parent.
-             */
-            calculateChildrenAreas: function (parent, area) {
-                var series = this,
-                    options = series.options,
-                    mapOptionsToLevel = series.mapOptionsToLevel,
-                    level = mapOptionsToLevel[parent.level + 1],
-                    algorithm = pick((series[(level && level.layoutAlgorithm)] &&
-                        level.layoutAlgorithm),
-                    options.layoutAlgorithm),
-                    alternate = options.alternateStartingDirection,
-                    childrenValues = [],
-                    children;
-                // Collect all children which should be included
-                children = parent.children.filter(function (n) {
-                    return !n.ignore;
-                });
-                if (level && level.layoutStartingDirection) {
-                    area.direction = level.layoutStartingDirection === 'vertical' ?
-                        0 :
-                        1;
-                }
-                childrenValues = series[algorithm](area, children);
-                children.forEach(function (child, index) {
-                    var values = childrenValues[index];
-                    child.values = merge(values, {
-                        val: child.childrenTotal,
-                        direction: (alternate ? 1 - area.direction : area.direction)
-                    });
-                    child.pointValues = merge(values, {
-                        x: (values.x / series.axisRatio),
-                        // Flip y-values to avoid visual regression with csvCoord in
-                        // Axis.translate at setPointValues. #12488
-                        y: AXIS_MAX - values.y - values.height,
-                        width: (values.width / series.axisRatio)
-                    });
-                    // If node has children, then call method recursively
-                    if (child.children.length) {
-                        series.calculateChildrenAreas(child, child.values);
-                    }
-                });
-            },
-            setPointValues: function () {
-                var series = this;
-                var points = series.points,
-                    xAxis = series.xAxis,
-                    yAxis = series.yAxis;
-                var styledMode = series.chart.styledMode;
-                // Get the crisp correction in classic mode. For this to work in
-                // styled mode, we would need to first add the shape (without x,
-                // y, width and height), then read the rendered stroke width
-                // using point.graphic.strokeWidth(), then modify and apply the
-                // shapeArgs. This applies also to column series, but the
-                // downside is performance and code complexity.
-                var getCrispCorrection = function (point) { return (styledMode ?
-                        0 :
-                        ((series.pointAttribs(point)['stroke-width'] || 0) % 2) / 2); };
-                points.forEach(function (point) {
-                    var _a = point.node,
-                        values = _a.pointValues,
-                        visible = _a.visible;
-                    // Points which is ignored, have no values.
-                    if (values && visible) {
-                        var height = values.height,
-                            width = values.width,
-                            x = values.x,
-                            y = values.y;
-                        var crispCorr = getCrispCorrection(point);
-                        var x1 = Math.round(xAxis.toPixels(x,
-                            true)) - crispCorr;
-                        var x2 = Math.round(xAxis.toPixels(x + width,
-                            true)) - crispCorr;
-                        var y1 = Math.round(yAxis.toPixels(y,
-                            true)) - crispCorr;
-                        var y2 = Math.round(yAxis.toPixels(y + height,
-                            true)) - crispCorr;
-                        // Set point values
-                        point.shapeArgs = {
-                            x: Math.min(x1, x2),
-                            y: Math.min(y1, y2),
-                            width: Math.abs(x2 - x1),
-                            height: Math.abs(y2 - y1)
-                        };
-                        point.plotX =
-                            point.shapeArgs.x + (point.shapeArgs.width / 2);
-                        point.plotY =
-                            point.shapeArgs.y + (point.shapeArgs.height / 2);
-                    }
-                    else {
-                        // Reset visibility
-                        delete point.plotX;
-                        delete point.plotY;
-                    }
-                });
-            },
-            // Set the node's color recursively, from the parent down.
-            setColorRecursive: function (node, parentColor, colorIndex, index, siblings) {
-                var series = this,
-                    chart = series && series.chart,
-                    colors = chart && chart.options && chart.options.colors,
-                    colorInfo,
-                    point;
-                if (node) {
-                    colorInfo = getColor(node, {
-                        colors: colors,
-                        index: index,
-                        mapOptionsToLevel: series.mapOptionsToLevel,
-                        parentColor: parentColor,
-                        parentColorIndex: colorIndex,
-                        series: series,
-                        siblings: siblings
-                    });
-                    point = series.points[node.i];
-                    if (point) {
-                        point.color = colorInfo.color;
-                        point.colorIndex = colorInfo.colorIndex;
-                    }
-                    // Do it all again with the children
-                    (node.children || []).forEach(function (child, i) {
-                        series.setColorRecursive(child, colorInfo.color, colorInfo.colorIndex, i, node.children.length);
-                    });
-                }
-            },
-            algorithmGroup: function (h, w, d, p) {
-                this.height = h;
-                this.width = w;
-                this.plot = p;
-                this.direction = d;
-                this.startDirection = d;
-                this.total = 0;
-                this.nW = 0;
-                this.lW = 0;
-                this.nH = 0;
-                this.lH = 0;
-                this.elArr = [];
-                this.lP = {
-                    total: 0,
-                    lH: 0,
-                    nH: 0,
-                    lW: 0,
-                    nW: 0,
-                    nR: 0,
-                    lR: 0,
-                    aspectRatio: function (w, h) {
-                        return Math.max((w / h), (h / w));
-                    }
-                };
-                this.addElement = function (el) {
-                    this.lP.total = this.elArr[this.elArr.length - 1];
-                    this.total = this.total + el;
-                    if (this.direction === 0) {
-                        // Calculate last point old aspect ratio
-                        this.lW = this.nW;
-                        this.lP.lH = this.lP.total / this.lW;
-                        this.lP.lR = this.lP.aspectRatio(this.lW, this.lP.lH);
-                        // Calculate last point new aspect ratio
-                        this.nW = this.total / this.height;
-                        this.lP.nH = this.lP.total / this.nW;
-                        this.lP.nR = this.lP.aspectRatio(this.nW, this.lP.nH);
-                    }
-                    else {
-                        // Calculate last point old aspect ratio
-                        this.lH = this.nH;
-                        this.lP.lW = this.lP.total / this.lH;
-                        this.lP.lR = this.lP.aspectRatio(this.lP.lW, this.lH);
-                        // Calculate last point new aspect ratio
-                        this.nH = this.total / this.width;
-                        this.lP.nW = this.lP.total / this.nH;
-                        this.lP.nR = this.lP.aspectRatio(this.lP.nW, this.nH);
-                    }
-                    this.elArr.push(el);
-                };
-                this.reset = function () {
-                    this.nW = 0;
-                    this.lW = 0;
-                    this.elArr = [];
-                    this.total = 0;
-                };
-            },
-            algorithmCalcPoints: function (directionChange, last, group, childrenArea) {
-                var pX,
-                    pY,
-                    pW,
-                    pH,
-                    gW = group.lW,
-                    gH = group.lH,
-                    plot = group.plot,
-                    keep,
-                    i = 0,
-                    end = group.elArr.length - 1;
-                if (last) {
-                    gW = group.nW;
-                    gH = group.nH;
-                }
-                else {
-                    keep = group.elArr[group.elArr.length - 1];
-                }
-                group.elArr.forEach(function (p) {
-                    if (last || (i < end)) {
-                        if (group.direction === 0) {
-                            pX = plot.x;
-                            pY = plot.y;
-                            pW = gW;
-                            pH = p / pW;
-                        }
-                        else {
-                            pX = plot.x;
-                            pY = plot.y;
-                            pH = gH;
-                            pW = p / pH;
-                        }
-                        childrenArea.push({
-                            x: pX,
-                            y: pY,
-                            width: pW,
-                            height: correctFloat(pH)
-                        });
-                        if (group.direction === 0) {
-                            plot.y = plot.y + pH;
-                        }
-                        else {
-                            plot.x = plot.x + pW;
-                        }
-                    }
-                    i = i + 1;
-                });
-                // Reset variables
-                group.reset();
-                if (group.direction === 0) {
-                    group.width = group.width - gW;
-                }
-                else {
-                    group.height = group.height - gH;
-                }
-                plot.y = plot.parent.y + (plot.parent.height - group.height);
-                plot.x = plot.parent.x + (plot.parent.width - group.width);
-                if (directionChange) {
-                    group.direction = 1 - group.direction;
-                }
-                // If not last, then add uncalculated element
-                if (!last) {
-                    group.addElement(keep);
-                }
-            },
-            algorithmLowAspectRatio: function (directionChange, parent, children) {
-                var childrenArea = [],
-                    series = this,
-                    pTot,
-                    plot = {
-                        x: parent.x,
-                        y: parent.y,
-                        parent: parent
-                    },
-                    direction = parent.direction,
-                    i = 0,
-                    end = children.length - 1,
-                    group = new this.algorithmGroup(// eslint-disable-line new-cap
-                    parent.height,
-                    parent.width,
-                    direction,
-                    plot);
-                // Loop through and calculate all areas
-                children.forEach(function (child) {
-                    pTot =
-                        (parent.width * parent.height) * (child.val / parent.val);
-                    group.addElement(pTot);
-                    if (group.lP.nR > group.lP.lR) {
-                        series.algorithmCalcPoints(directionChange, false, group, childrenArea, plot // @todo no supported
-                        );
-                    }
-                    // If last child, then calculate all remaining areas
-                    if (i === end) {
-                        series.algorithmCalcPoints(directionChange, true, group, childrenArea, plot // @todo not supported
-                        );
-                    }
-                    i = i + 1;
-                });
-                return childrenArea;
-            },
-            algorithmFill: function (directionChange, parent, children) {
-                var childrenArea = [],
-                    pTot,
-                    direction = parent.direction,
-                    x = parent.x,
-                    y = parent.y,
-                    width = parent.width,
-                    height = parent.height,
-                    pX,
-                    pY,
-                    pW,
-                    pH;
-                children.forEach(function (child) {
-                    pTot =
-                        (parent.width * parent.height) * (child.val / parent.val);
-                    pX = x;
-                    pY = y;
-                    if (direction === 0) {
-                        pH = height;
-                        pW = pTot / pH;
-                        width = width - pW;
-                        x = x + pW;
-                    }
-                    else {
-                        pW = width;
-                        pH = pTot / pW;
-                        height = height - pH;
-                        y = y + pH;
-                    }
-                    childrenArea.push({
-                        x: pX,
-                        y: pY,
-                        width: pW,
-                        height: pH
-                    });
-                    if (directionChange) {
-                        direction = 1 - direction;
-                    }
-                });
-                return childrenArea;
-            },
-            strip: function (parent, children) {
-                return this.algorithmLowAspectRatio(false, parent, children);
-            },
-            squarified: function (parent, children) {
-                return this.algorithmLowAspectRatio(true, parent, children);
-            },
-            sliceAndDice: function (parent, children) {
-                return this.algorithmFill(true, parent, children);
-            },
-            stripes: function (parent, children) {
-                return this.algorithmFill(false, parent, children);
-            },
-            translate: function () {
-                var series = this,
-                    options = series.options, 
-                    // NOTE: updateRootId modifies series.
-                    rootId = updateRootId(series),
-                    rootNode,
-                    pointValues,
-                    seriesArea,
-                    tree,
-                    val;
-                // Call prototype function
-                Series.prototype.translate.call(series);
-                // @todo Only if series.isDirtyData is true
-                tree = series.tree = series.getTree();
-                rootNode = series.nodeMap[rootId];
-                series.renderTraverseUpButton(rootId);
-                series.mapOptionsToLevel = getLevelOptions({
-                    from: rootNode.level + 1,
-                    levels: options.levels,
-                    to: tree.height,
-                    defaults: {
-                        levelIsConstant: series.options.levelIsConstant,
-                        colorByPoint: options.colorByPoint
-                    }
-                });
-                if (rootId !== '' &&
-                    (!rootNode || !rootNode.children.length)) {
-                    series.setRootNode('', false);
-                    rootId = series.rootNode;
-                    rootNode = series.nodeMap[rootId];
-                }
-                // Parents of the root node is by default visible
-                recursive(series.nodeMap[series.rootNode], function (node) {
-                    var next = false,
-                        p = node.parent;
-                    node.visible = true;
-                    if (p || p === '') {
-                        next = series.nodeMap[p];
-                    }
-                    return next;
-                });
-                // Children of the root node is by default visible
-                recursive(series.nodeMap[series.rootNode].children, function (children) {
-                    var next = false;
-                    children.forEach(function (child) {
-                        child.visible = true;
-                        if (child.children.length) {
-                            next = (next || []).concat(child.children);
-                        }
-                    });
-                    return next;
-                });
-                series.setTreeValues(tree);
-                // Calculate plotting values.
-                series.axisRatio = (series.xAxis.len / series.yAxis.len);
-                series.nodeMap[''].pointValues = pointValues = {
-                    x: 0,
-                    y: 0,
-                    width: AXIS_MAX,
-                    height: AXIS_MAX
-                };
-                series.nodeMap[''].values = seriesArea = merge(pointValues, {
-                    width: (pointValues.width * series.axisRatio),
-                    direction: (options.layoutStartingDirection === 'vertical' ? 0 : 1),
-                    val: tree.val
-                });
-                series.calculateChildrenAreas(tree, seriesArea);
-                // Logic for point colors
-                if (!series.colorAxis &&
-                    !options.colorByPoint) {
-                    series.setColorRecursive(series.tree);
-                }
-                // Update axis extremes according to the root node.
-                if (options.allowTraversingTree) {
-                    val = rootNode.pointValues;
-                    series.xAxis.setExtremes(val.x, val.x + val.width, false);
-                    series.yAxis.setExtremes(val.y, val.y + val.height, false);
-                    series.xAxis.setScale();
-                    series.yAxis.setScale();
-                }
-                // Assign values to points.
-                series.setPointValues();
-            },
-            /**
-             * Extend drawDataLabels with logic to handle custom options related to
-             * the treemap series:
-             *
-             * - Points which is not a leaf node, has dataLabels disabled by
-             *   default.
-             *
-             * - Options set on series.levels is merged in.
-             *
-             * - Width of the dataLabel is set to match the width of the point
-             *   shape.
-             *
-             * @private
-             * @function Highcharts.Series#drawDataLabels
-             */
-            drawDataLabels: function () {
-                var series = this,
-                    mapOptionsToLevel = series.mapOptionsToLevel,
-                    points = series.points.filter(function (n) {
-                        return n.node.visible;
-                }), options, level;
-                points.forEach(function (point) {
-                    level = mapOptionsToLevel[point.node.level];
-                    // Set options to new object to avoid problems with scope
-                    options = { style: {} };
-                    // If not a leaf, then label should be disabled as default
-                    if (!point.node.isLeaf) {
-                        options.enabled = false;
-                    }
-                    // If options for level exists, include them as well
-                    if (level && level.dataLabels) {
-                        options = merge(options, level.dataLabels);
-                        series._hasPointLabels = true;
-                    }
-                    // Set dataLabel width to the width of the point shape.
-                    if (point.shapeArgs) {
-                        options.style.width = point.shapeArgs.width;
-                        if (point.dataLabel) {
-                            point.dataLabel.css({
-                                width: point.shapeArgs.width + 'px'
-                            });
-                        }
-                    }
-                    // Merge custom options with point options
-                    point.dlOptions = merge(options, point.options.dataLabels);
-                });
-                Series.prototype.drawDataLabels.call(this);
-            },
-            // Over the alignment method by setting z index
-            alignDataLabel: function (point, dataLabel, labelOptions) {
-                var style = labelOptions.style;
-                // #8160: Prevent the label from exceeding the point's
-                // boundaries in treemaps by applying ellipsis overflow.
-                // The issue was happening when datalabel's text contained a
-                // long sequence of characters without a whitespace.
-                if (!defined(style.textOverflow) &&
-                    dataLabel.text &&
-                    dataLabel.getBBox().width > dataLabel.text.textWidth) {
-                    dataLabel.css({
-                        textOverflow: 'ellipsis',
-                        // unit (px) is required when useHTML is true
-                        width: style.width += 'px'
-                    });
-                }
-                seriesTypes.column.prototype.alignDataLabel.apply(this, arguments);
-                if (point.dataLabel) {
-                    // point.node.zIndex could be undefined (#6956)
-                    point.dataLabel.attr({ zIndex: (point.node.zIndex || 0) + 1 });
-                }
-            },
-            // Get presentational attributes
-            pointAttribs: function (point, state) {
-                var series = this,
-                    mapOptionsToLevel = (isObject(series.mapOptionsToLevel) ?
-                        series.mapOptionsToLevel :
-                        {}),
-                    level = point && mapOptionsToLevel[point.node.level] || {},
-                    options = this.options,
-                    attr,
-                    stateOptions = (state && options.states[state]) || {},
-                    className = (point && point.getClassName()) || '',
-                    opacity;
-                // Set attributes by precedence. Point trumps level trumps series.
-                // Stroke width uses pick because it can be 0.
-                attr = {
-                    'stroke': (point && point.borderColor) ||
-                        level.borderColor ||
-                        stateOptions.borderColor ||
-                        options.borderColor,
-                    'stroke-width': pick(point && point.borderWidth, level.borderWidth, stateOptions.borderWidth, options.borderWidth),
-                    'dashstyle': (point && point.borderDashStyle) ||
-                        level.borderDashStyle ||
-                        stateOptions.borderDashStyle ||
-                        options.borderDashStyle,
-                    'fill': (point && point.color) || this.color
-                };
-                // Hide levels above the current view
-                if (className.indexOf('highcharts-above-level') !== -1) {
-                    attr.fill = 'none';
-                    attr['stroke-width'] = 0;
-                    // Nodes with children that accept interaction
-                }
-                else if (className.indexOf('highcharts-internal-node-interactive') !== -1) {
-                    opacity = pick(stateOptions.opacity, options.opacity);
-                    attr.fill = color(attr.fill).setOpacity(opacity).get();
-                    attr.cursor = 'pointer';
-                    // Hide nodes that have children
-                }
-                else if (className.indexOf('highcharts-internal-node') !== -1) {
-                    attr.fill = 'none';
-                }
-                else if (state) {
-                    // Brighten and hoist the hover nodes
-                    attr.fill = color(attr.fill)
-                        .brighten(stateOptions.brightness)
-                        .get();
-                }
-                return attr;
-            },
-            // Override drawPoints
-            drawPoints: function () {
-                var series = this,
-                    chart = series.chart,
-                    renderer = chart.renderer,
-                    points = series.points,
-                    styledMode = chart.styledMode,
-                    options = series.options,
-                    shadow = styledMode ? {} : options.shadow,
-                    borderRadius = options.borderRadius,
-                    withinAnimationLimit = chart.pointCount < options.animationLimit,
-                    allowTraversingTree = options.allowTraversingTree;
-                points.forEach(function (point) {
-                    var levelDynamic = point.node.levelDynamic,
-                        animatableAttribs = {},
-                        attribs = {},
-                        css = {},
-                        groupKey = 'level-group-' + point.node.level,
-                        hasGraphic = !!point.graphic,
-                        shouldAnimate = withinAnimationLimit && hasGraphic,
-                        shapeArgs = point.shapeArgs;
-                    // Don't bother with calculate styling if the point is not drawn
-                    if (point.shouldDraw()) {
-                        if (borderRadius) {
-                            attribs.r = borderRadius;
-                        }
-                        merge(true, // Extend object
-                        // Which object to extend
-                        shouldAnimate ? animatableAttribs : attribs, 
-                        // Add shapeArgs to animate/attr if graphic exists
-                        hasGraphic ? shapeArgs : {}, 
-                        // Add style attribs if !styleMode
-                        styledMode ?
-                            {} :
-                            series.pointAttribs(point, point.selected ? 'select' : void 0));
-                        // In styled mode apply point.color. Use CSS, otherwise the
-                        // fill used in the style sheet will take precedence over
-                        // the fill attribute.
-                        if (series.colorAttribs && styledMode) {
-                            // Heatmap is loaded
-                            extend(css, series.colorAttribs(point));
-                        }
-                        if (!series[groupKey]) {
-                            series[groupKey] = renderer.g(groupKey)
-                                .attr({
-                                // @todo Set the zIndex based upon the number of
-                                // levels, instead of using 1000
-                                zIndex: 1000 - (levelDynamic || 0)
-                            })
-                                .add(series.group);
-                            series[groupKey].survive = true;
-                        }
-                    }
-                    // Draw the point
-                    point.draw({
-                        animatableAttribs: animatableAttribs,
-                        attribs: attribs,
-                        css: css,
-                        group: series[groupKey],
-                        renderer: renderer,
-                        shadow: shadow,
-                        shapeArgs: shapeArgs,
-                        shapeType: 'rect'
-                    });
-                    // If setRootNode is allowed, set a point cursor on clickables &
-                    // add drillId to point
-                    if (allowTraversingTree && point.graphic) {
-                        point.drillId = options.interactByLeaf ?
-                            series.drillToByLeaf(point) :
-                            series.drillToByGroup(point);
-                    }
-                });
-            },
-            // Add drilling on the suitable points
-            onClickDrillToNode: function (event) {
-                var series = this,
-                    point = event.point,
-                    drillId = point && point.drillId;
-                // If a drill id is returned, add click event and cursor.
-                if (isString(drillId)) {
-                    point.setState(''); // Remove hover
-                    series.setRootNode(drillId, true, { trigger: 'click' });
-                }
-            },
-            /**
-             * Finds the drill id for a parent node. Returns false if point should
-             * not have a click event.
-             *
-             * @private
-             * @function Highcharts.Series#drillToByGroup
-             *
-             * @param {Highcharts.Point} point
-             *
-             * @return {boolean|string}
-             *         Drill to id or false when point should not have a click
-             *         event.
-             */
-            drillToByGroup: function (point) {
-                var series = this,
-                    drillId = false;
-                if ((point.node.level - series.nodeMap[series.rootNode].level) ===
-                    1 &&
-                    !point.node.isLeaf) {
-                    drillId = point.id;
-                }
-                return drillId;
-            },
-            /**
-             * Finds the drill id for a leaf node. Returns false if point should not
-             * have a click event
-             *
-             * @private
-             * @function Highcharts.Series#drillToByLeaf
-             *
-             * @param {Highcharts.Point} point
-             *
-             * @return {boolean|string}
-             *         Drill to id or false when point should not have a click
-             *         event.
-             */
-            drillToByLeaf: function (point) {
-                var series = this,
-                    drillId = false,
-                    nodeParent;
-                if ((point.node.parent !== series.rootNode) &&
-                    point.node.isLeaf) {
-                    nodeParent = point.node;
-                    while (!drillId) {
-                        nodeParent = series.nodeMap[nodeParent.parent];
-                        if (nodeParent.parent === series.rootNode) {
-                            drillId = nodeParent.id;
-                        }
-                    }
-                }
-                return drillId;
-            },
-            drillUp: function () {
-                var series = this,
-                    node = series.nodeMap[series.rootNode];
-                if (node && isString(node.parent)) {
-                    series.setRootNode(node.parent, true, { trigger: 'traverseUpButton' });
-                }
-            },
-            // TODO remove this function at a suitable version.
-            drillToNode: function (id, redraw) {
-                error(32, false, void 0, { 'treemap.drillToNode': 'use treemap.setRootNode' });
-                this.setRootNode(id, redraw);
-            },
-            /**
-             * Sets a new root node for the series.
-             *
-             * @private
-             * @function Highcharts.Series#setRootNode
-             *
-             * @param {string} id The id of the new root node.
-             * @param {boolean} [redraw=true] Wether to redraw the chart or not.
-             * @param {object} [eventArguments] Arguments to be accessed in
-             * event handler.
-             * @param {string} [eventArguments.newRootId] Id of the new root.
-             * @param {string} [eventArguments.previousRootId] Id of the previous
-             * root.
-             * @param {boolean} [eventArguments.redraw] Wether to redraw the
-             * chart after.
-             * @param {object} [eventArguments.series] The series to update the root
-             * of.
-             * @param {string} [eventArguments.trigger] The action which
-             * triggered the event. Undefined if the setRootNode is called
-             * directly.
-             * @return {void}
-             *
-             * @fires Highcharts.Series#event:setRootNode
-             */
-            setRootNode: function (id, redraw, eventArguments) {
-                var series = this,
-                    eventArgs = extend({
-                        newRootId: id,
-                        previousRootId: series.rootNode,
-                        redraw: pick(redraw,
-                    true),
-                        series: series
-                    },
-                    eventArguments);
-                /**
-                 * The default functionality of the setRootNode event.
-                 *
-                 * @private
-                 * @param {object} args The event arguments.
-                 * @param {string} args.newRootId Id of the new root.
-                 * @param {string} args.previousRootId Id of the previous root.
-                 * @param {boolean} args.redraw Wether to redraw the chart after.
-                 * @param {object} args.series The series to update the root of.
-                 * @param {string} [args.trigger=undefined] The action which
-                 * triggered the event. Undefined if the setRootNode is called
-                 * directly.
-                 * @return {void}
-                 */
-                var defaultFn = function (args) {
-                        var series = args.series;
-                    // Store previous and new root ids on the series.
-                    series.idPreviousRoot = args.previousRootId;
-                    series.rootNode = args.newRootId;
-                    // Redraw the chart
-                    series.isDirty = true; // Force redraw
-                    if (args.redraw) {
-                        series.chart.redraw();
-                    }
-                };
-                // Fire setRootNode event.
-                fireEvent(series, 'setRootNode', eventArgs, defaultFn);
-            },
-            renderTraverseUpButton: function (rootId) {
-                var series = this,
-                    nodeMap = series.nodeMap,
-                    node = nodeMap[rootId],
-                    name = node.name,
-                    buttonOptions = series.options.traverseUpButton,
-                    backText = pick(buttonOptions.text,
-                    name, '◁ Back'),
-                    attr,
-                    states;
-                if (rootId === '' || (series.is('sunburst') &&
-                    series.tree.children.length === 1 &&
-                    rootId === series.tree.children[0].id)) {
-                    if (series.drillUpButton) {
-                        series.drillUpButton = series.drillUpButton.destroy();
-                    }
-                }
-                else if (!this.drillUpButton) {
-                    attr = buttonOptions.theme;
-                    states = attr && attr.states;
-                    this.drillUpButton = this.chart.renderer
-                        .button(backText, 0, 0, function () {
-                        series.drillUp();
-                    }, attr, states && states.hover, states && states.select)
-                        .addClass('highcharts-drillup-button')
-                        .attr({
-                        align: buttonOptions.position.align,
-                        zIndex: 7
-                    })
-                        .add()
-                        .align(buttonOptions.position, false, buttonOptions.relativeTo || 'plotBox');
-                }
-                else {
-                    this.drillUpButton.placed = false;
-                    this.drillUpButton.attr({
-                        text: backText
-                    })
-                        .align();
-                }
-            },
-            buildKDTree: noop,
-            drawLegendSymbol: LegendSymbolMixin.drawRectangle,
-            getExtremes: function () {
-                // Get the extremes from the value data
-                var _a = Series.prototype.getExtremes
-                        .call(this,
-                    this.colorValueData),
-                    dataMin = _a.dataMin,
-                    dataMax = _a.dataMax;
-                this.valueMin = dataMin;
-                this.valueMax = dataMax;
-                // Get the extremes from the y data
-                return Series.prototype.getExtremes.call(this);
-            },
-            getExtremesFromAll: true,
-            /**
-             * Workaround for `inactive` state. Since `series.opacity` option is
-             * already reserved, don't use that state at all by disabling
-             * `inactiveOtherPoints` and not inheriting states by points.
-             *
-             * @private
-             */
-            setState: function (state) {
-                this.options.inactiveOtherPoints = true;
-                Series.prototype.setState.call(this, state, false);
-                this.options.inactiveOtherPoints = false;
-            },
-            utils: {
-                recursive: recursive
-            }
-            /* eslint-enable no-invalid-this, valid-jsdoc */
-        }, {
-            draw: drawPoint,
-            setVisible: seriesTypes.pie.prototype.pointClass.prototype.setVisible,
-            /* eslint-disable no-invalid-this, valid-jsdoc */
-            getClassName: function () {
-                var className = Point.prototype.getClassName.call(this),
-                    series = this.series,
-                    options = series.options;
-                // Above the current level
-                if (this.node.level <= series.nodeMap[series.rootNode].level) {
-                    className += ' highcharts-above-level';
-                }
-                else if (!this.node.isLeaf &&
-                    !pick(options.interactByLeaf, !options.allowTraversingTree)) {
-                    className += ' highcharts-internal-node-interactive';
-                }
-                else if (!this.node.isLeaf) {
-                    className += ' highcharts-internal-node';
-                }
-                return className;
-            },
-            /**
-             * A tree point is valid if it has han id too, assume it may be a parent
-             * item.
-             *
-             * @private
-             * @function Highcharts.Point#isValid
-             */
-            isValid: function () {
-                return Boolean(this.id || isNumber(this.value));
-            },
-            setState: function (state) {
-                Point.prototype.setState.call(this, state);
-                // Graphic does not exist when point is not visible.
-                if (this.graphic) {
-                    this.graphic.attr({
-                        zIndex: state === 'hover' ? 1 : 0
-                    });
-                }
-            },
-            shouldDraw: function () {
-                return isNumber(this.plotY) && this.y !== null;
-            }
-        });
-        addEvent(H.Series, 'afterBindAxes', function () {
-            var series = this,
-                xAxis = series.xAxis,
-                yAxis = series.yAxis,
-                treeAxis;
-            if (xAxis && yAxis) {
-                if (series.is('treemap')) {
-                    treeAxis = {
-                        endOnTick: false,
-                        gridLineWidth: 0,
-                        lineWidth: 0,
-                        min: 0,
-                        dataMin: 0,
-                        minPadding: 0,
-                        max: AXIS_MAX,
-                        dataMax: AXIS_MAX,
-                        maxPadding: 0,
-                        startOnTick: false,
-                        title: null,
-                        tickPositions: []
-                    };
-                    extend(yAxis.options, treeAxis);
-                    extend(xAxis.options, treeAxis);
-                    treemapAxisDefaultValues = true;
-                }
-                else if (treemapAxisDefaultValues) {
-                    yAxis.setOptions(yAxis.userOptions);
-                    xAxis.setOptions(xAxis.userOptions);
-                    treemapAxisDefaultValues = false;
-                }
-            }
-        });
-        /* eslint-enable no-invalid-this, valid-jsdoc */
+            legendSymbol: 'rectangle'
+        };
         /**
          * A `treemap` series. If the [type](#series.treemap.type) option is
          * not specified, it is inherited from [chart.type](#chart.type).
@@ -2067,7 +1953,7 @@
          *
          * @type      {Array<number|null|*>}
          * @extends   series.heatmap.data
-         * @excluding x, y
+         * @excluding x, y, pointPadding
          * @product   highcharts
          * @apioption series.treemap.data
          */
@@ -2105,11 +1991,1247 @@
          * @product   highcharts
          * @apioption series.treemap.data.parent
          */
-        ''; // adds doclets above to transpiled file
+        ''; // Keeps doclets above detached
+        /* *
+         *
+         *  Default Export
+         *
+         * */
 
+        return TreemapSeriesDefaults;
     });
-    _registerModule(_modules, 'masters/modules/treemap.src.js', [], function () {
+    _registerModule(_modules, 'Series/Treemap/TreemapUtilities.js', [], function () {
+        /* *
+         *
+         *  (c) 2014-2024 Highsoft AS
+         *
+         *  Authors: Jon Arild Nygard / Oystein Moseng
+         *
+         *  License: www.highcharts.com/license
+         *
+         *  !!!!!!! SOURCE GETS TRANSPILED BY TYPESCRIPT. EDIT TS FILE ONLY. !!!!!!!
+         *
+         * */
+        /* *
+         *
+         *  Namespace
+         *
+         * */
+        var TreemapUtilities;
+        (function (TreemapUtilities) {
+            /* *
+             *
+             *  Declarations
+             *
+             * */
+            /* *
+             *
+             *  Functions
+             *
+             * */
+            /**
+             * @todo find correct name for this function.
+             * @todo Similar to reduce, this function is likely redundant
+             */
+            function recursive(item, func, context) {
+                const next = func.call(context || this, item);
+                if (next !== false) {
+                    recursive(next, func, context);
+                }
+            }
+            TreemapUtilities.recursive = recursive;
+        })(TreemapUtilities || (TreemapUtilities = {}));
+        /* *
+         *
+         *  Default Export
+         *
+         * */
 
+        return TreemapUtilities;
+    });
+    _registerModule(_modules, 'Series/TreeUtilities.js', [_modules['Core/Color/Color.js'], _modules['Core/Utilities.js']], function (Color, U) {
+        /* *
+         *
+         *  (c) 2014-2024 Highsoft AS
+         *
+         *  Authors: Jon Arild Nygard / Oystein Moseng
+         *
+         *  License: www.highcharts.com/license
+         *
+         *  !!!!!!! SOURCE GETS TRANSPILED BY TYPESCRIPT. EDIT TS FILE ONLY. !!!!!!!
+         *
+         * */
+        const { extend, isArray, isNumber, isObject, merge, pick, relativeLength } = U;
+        /* *
+         *
+         *  Functions
+         *
+         * */
+        /* eslint-disable valid-jsdoc */
+        /**
+         * @private
+         */
+        function getColor(node, options) {
+            const index = options.index, mapOptionsToLevel = options.mapOptionsToLevel, parentColor = options.parentColor, parentColorIndex = options.parentColorIndex, series = options.series, colors = options.colors, siblings = options.siblings, points = series.points, chartOptionsChart = series.chart.options.chart;
+            let getColorByPoint, point, level, colorByPoint, colorIndexByPoint, color, colorIndex;
+            /**
+             * @private
+             */
+            const variateColor = (color) => {
+                const colorVariation = level && level.colorVariation;
+                if (colorVariation &&
+                    colorVariation.key === 'brightness' &&
+                    index &&
+                    siblings) {
+                    return Color.parse(color).brighten(colorVariation.to * (index / siblings)).get();
+                }
+                return color;
+            };
+            if (node) {
+                point = points[node.i];
+                level = mapOptionsToLevel[node.level] || {};
+                getColorByPoint = point && level.colorByPoint;
+                if (getColorByPoint) {
+                    colorIndexByPoint = point.index % (colors ?
+                        colors.length :
+                        chartOptionsChart.colorCount);
+                    colorByPoint = colors && colors[colorIndexByPoint];
+                }
+                // Select either point color, level color or inherited color.
+                if (!series.chart.styledMode) {
+                    color = pick(point && point.options.color, level && level.color, colorByPoint, parentColor && variateColor(parentColor), series.color);
+                }
+                colorIndex = pick(point && point.options.colorIndex, level && level.colorIndex, colorIndexByPoint, parentColorIndex, options.colorIndex);
+            }
+            return {
+                color: color,
+                colorIndex: colorIndex
+            };
+        }
+        /**
+         * Creates a map from level number to its given options.
+         *
+         * @private
+         *
+         * @param {Object} params
+         * Object containing parameters.
+         * - `defaults` Object containing default options. The default options are
+         *   merged with the userOptions to get the final options for a specific
+         *   level.
+         * - `from` The lowest level number.
+         * - `levels` User options from series.levels.
+         * - `to` The highest level number.
+         *
+         * @return {Highcharts.Dictionary<object>|null}
+         * Returns a map from level number to its given options.
+         */
+        function getLevelOptions(params) {
+            const result = {};
+            let defaults, converted, i, from, to, levels;
+            if (isObject(params)) {
+                from = isNumber(params.from) ? params.from : 1;
+                levels = params.levels;
+                converted = {};
+                defaults = isObject(params.defaults) ? params.defaults : {};
+                if (isArray(levels)) {
+                    converted = levels.reduce((obj, item) => {
+                        let level, levelIsConstant, options;
+                        if (isObject(item) && isNumber(item.level)) {
+                            options = merge({}, item);
+                            levelIsConstant = pick(options.levelIsConstant, defaults.levelIsConstant);
+                            // Delete redundant properties.
+                            delete options.levelIsConstant;
+                            delete options.level;
+                            // Calculate which level these options apply to.
+                            level = item.level + (levelIsConstant ? 0 : from - 1);
+                            if (isObject(obj[level])) {
+                                merge(true, obj[level], options); // #16329
+                            }
+                            else {
+                                obj[level] = options;
+                            }
+                        }
+                        return obj;
+                    }, {});
+                }
+                to = isNumber(params.to) ? params.to : 1;
+                for (i = 0; i <= to; i++) {
+                    result[i] = merge({}, defaults, isObject(converted[i]) ? converted[i] : {});
+                }
+            }
+            return result;
+        }
+        /**
+         * @private
+         * @todo Combine buildTree and buildNode with setTreeValues
+         * @todo Remove logic from Treemap and make it utilize this mixin.
+         */
+        function setTreeValues(tree, options) {
+            const before = options.before, idRoot = options.idRoot, mapIdToNode = options.mapIdToNode, nodeRoot = mapIdToNode[idRoot], levelIsConstant = (options.levelIsConstant !== false), points = options.points, point = points[tree.i], optionsPoint = point && point.options || {}, children = [];
+            let childrenTotal = 0;
+            tree.levelDynamic = tree.level - (levelIsConstant ? 0 : nodeRoot.level);
+            tree.name = pick(point && point.name, '');
+            tree.visible = (idRoot === tree.id ||
+                options.visible === true);
+            if (typeof before === 'function') {
+                tree = before(tree, options);
+            }
+            // First give the children some values
+            tree.children.forEach((child, i) => {
+                const newOptions = extend({}, options);
+                extend(newOptions, {
+                    index: i,
+                    siblings: tree.children.length,
+                    visible: tree.visible
+                });
+                child = setTreeValues(child, newOptions);
+                children.push(child);
+                if (child.visible) {
+                    childrenTotal += child.val;
+                }
+            });
+            // Set the values
+            const value = pick(optionsPoint.value, childrenTotal);
+            tree.visible = value >= 0 && (childrenTotal > 0 || tree.visible);
+            tree.children = children;
+            tree.childrenTotal = childrenTotal;
+            tree.isLeaf = tree.visible && !childrenTotal;
+            tree.val = value;
+            return tree;
+        }
+        /**
+         * Update the rootId property on the series. Also makes sure that it is
+         * accessible to exporting.
+         *
+         * @private
+         *
+         * @param {Object} series
+         * The series to operate on.
+         *
+         * @return {string}
+         * Returns the resulting rootId after update.
+         */
+        function updateRootId(series) {
+            let rootId, options;
+            if (isObject(series)) {
+                // Get the series options.
+                options = isObject(series.options) ? series.options : {};
+                // Calculate the rootId.
+                rootId = pick(series.rootNode, options.rootId, '');
+                // Set rootId on series.userOptions to pick it up in exporting.
+                if (isObject(series.userOptions)) {
+                    series.userOptions.rootId = rootId;
+                }
+                // Set rootId on series to pick it up on next update.
+                series.rootNode = rootId;
+            }
+            return rootId;
+        }
+        /**
+         * Get the node width, which relies on the plot width and the nodeDistance
+         * option.
+         *
+         * @private
+         */
+        function getNodeWidth(series, columnCount) {
+            const { chart, options } = series, { nodeDistance = 0, nodeWidth = 0 } = options, { plotSizeX = 1 } = chart;
+            // Node width auto means they are evenly distributed along the width of
+            // the plot area
+            if (nodeWidth === 'auto') {
+                if (typeof nodeDistance === 'string' && /%$/.test(nodeDistance)) {
+                    const fraction = parseFloat(nodeDistance) / 100, total = columnCount + fraction * (columnCount - 1);
+                    return plotSizeX / total;
+                }
+                const nDistance = Number(nodeDistance);
+                return ((plotSizeX + nDistance) /
+                    (columnCount || 1)) - nDistance;
+            }
+            return relativeLength(nodeWidth, plotSizeX);
+        }
+        /* *
+         *
+         *  Default Export
+         *
+         * */
+        const TreeUtilities = {
+            getColor,
+            getLevelOptions,
+            getNodeWidth,
+            setTreeValues,
+            updateRootId
+        };
 
+        return TreeUtilities;
+    });
+    _registerModule(_modules, 'Series/Treemap/TreemapSeries.js', [_modules['Extensions/Breadcrumbs/Breadcrumbs.js'], _modules['Core/Color/Color.js'], _modules['Series/ColorMapComposition.js'], _modules['Core/Globals.js'], _modules['Core/Series/SeriesRegistry.js'], _modules['Series/Treemap/TreemapAlgorithmGroup.js'], _modules['Series/Treemap/TreemapNode.js'], _modules['Series/Treemap/TreemapPoint.js'], _modules['Series/Treemap/TreemapSeriesDefaults.js'], _modules['Series/Treemap/TreemapUtilities.js'], _modules['Series/TreeUtilities.js'], _modules['Core/Utilities.js']], function (Breadcrumbs, Color, ColorMapComposition, H, SeriesRegistry, TreemapAlgorithmGroup, TreemapNode, TreemapPoint, TreemapSeriesDefaults, TreemapUtilities, TU, U) {
+        /* *
+         *
+         *  (c) 2014-2024 Highsoft AS
+         *
+         *  Authors: Jon Arild Nygard / Oystein Moseng
+         *
+         *  License: www.highcharts.com/license
+         *
+         *  !!!!!!! SOURCE GETS TRANSPILED BY TYPESCRIPT. EDIT TS FILE ONLY. !!!!!!!
+         *
+         * */
+        const { parse: color } = Color;
+        const { composed, noop } = H;
+        const { column: ColumnSeries, scatter: ScatterSeries } = SeriesRegistry.seriesTypes;
+        const { getColor, getLevelOptions, updateRootId } = TU;
+        const { addEvent, correctFloat, crisp, defined, error, extend, fireEvent, isArray, isObject, isString, merge, pick, pushUnique, stableSort } = U;
+        /* *
+         *
+         *  Constants
+         *
+         * */
+        const axisMax = 100;
+        /* *
+         *
+         *  Variables
+         *
+         * */
+        let treemapAxisDefaultValues = false;
+        /* *
+         *
+         *  Functions
+         *
+         * */
+        /** @private */
+        function onSeriesAfterBindAxes() {
+            const series = this, xAxis = series.xAxis, yAxis = series.yAxis;
+            let treeAxis;
+            if (xAxis && yAxis) {
+                if (series.is('treemap')) {
+                    treeAxis = {
+                        endOnTick: false,
+                        gridLineWidth: 0,
+                        lineWidth: 0,
+                        min: 0,
+                        minPadding: 0,
+                        max: axisMax,
+                        maxPadding: 0,
+                        startOnTick: false,
+                        title: void 0,
+                        tickPositions: []
+                    };
+                    extend(yAxis.options, treeAxis);
+                    extend(xAxis.options, treeAxis);
+                    treemapAxisDefaultValues = true;
+                }
+                else if (treemapAxisDefaultValues) {
+                    yAxis.setOptions(yAxis.userOptions);
+                    xAxis.setOptions(xAxis.userOptions);
+                    treemapAxisDefaultValues = false;
+                }
+            }
+        }
+        /* *
+         *
+         *  Class
+         *
+         * */
+        /**
+         * @private
+         * @class
+         * @name Highcharts.seriesTypes.treemap
+         *
+         * @augments Highcharts.Series
+         */
+        class TreemapSeries extends ScatterSeries {
+            /* *
+             *
+             *  Static Functions
+             *
+             * */
+            static compose(SeriesClass) {
+                if (pushUnique(composed, 'TreemapSeries')) {
+                    addEvent(SeriesClass, 'afterBindAxes', onSeriesAfterBindAxes);
+                }
+            }
+            /* *
+             *
+             *  Function
+             *
+             * */
+            /* eslint-disable valid-jsdoc */
+            algorithmCalcPoints(directionChange, last, group, childrenArea) {
+                const plot = group.plot, end = group.elArr.length - 1;
+                let pX, pY, pW, pH, gW = group.lW, gH = group.lH, keep, i = 0;
+                if (last) {
+                    gW = group.nW;
+                    gH = group.nH;
+                }
+                else {
+                    keep = group.elArr[end];
+                }
+                for (const p of group.elArr) {
+                    if (last || (i < end)) {
+                        if (group.direction === 0) {
+                            pX = plot.x;
+                            pY = plot.y;
+                            pW = gW;
+                            pH = p / pW;
+                        }
+                        else {
+                            pX = plot.x;
+                            pY = plot.y;
+                            pH = gH;
+                            pW = p / pH;
+                        }
+                        childrenArea.push({
+                            x: pX,
+                            y: pY,
+                            width: pW,
+                            height: correctFloat(pH)
+                        });
+                        if (group.direction === 0) {
+                            plot.y = plot.y + pH;
+                        }
+                        else {
+                            plot.x = plot.x + pW;
+                        }
+                    }
+                    i = i + 1;
+                }
+                // Reset variables
+                group.reset();
+                if (group.direction === 0) {
+                    group.width = group.width - gW;
+                }
+                else {
+                    group.height = group.height - gH;
+                }
+                plot.y = plot.parent.y + (plot.parent.height - group.height);
+                plot.x = plot.parent.x + (plot.parent.width - group.width);
+                if (directionChange) {
+                    group.direction = 1 - group.direction;
+                }
+                // If not last, then add uncalculated element
+                if (!last) {
+                    group.addElement(keep);
+                }
+            }
+            algorithmFill(directionChange, parent, children) {
+                const childrenArea = [];
+                let pTot, direction = parent.direction, x = parent.x, y = parent.y, width = parent.width, height = parent.height, pX, pY, pW, pH;
+                for (const child of children) {
+                    pTot =
+                        (parent.width * parent.height) * (child.val / parent.val);
+                    pX = x;
+                    pY = y;
+                    if (direction === 0) {
+                        pH = height;
+                        pW = pTot / pH;
+                        width = width - pW;
+                        x = x + pW;
+                    }
+                    else {
+                        pW = width;
+                        pH = pTot / pW;
+                        height = height - pH;
+                        y = y + pH;
+                    }
+                    childrenArea.push({
+                        x: pX,
+                        y: pY,
+                        width: pW,
+                        height: pH
+                    });
+                    if (directionChange) {
+                        direction = 1 - direction;
+                    }
+                }
+                return childrenArea;
+            }
+            algorithmLowAspectRatio(directionChange, parent, children) {
+                const series = this, childrenArea = [], plot = {
+                    x: parent.x,
+                    y: parent.y,
+                    parent: parent
+                }, direction = parent.direction, end = children.length - 1, group = new TreemapAlgorithmGroup(parent.height, parent.width, direction, plot);
+                let pTot, i = 0;
+                // Loop through and calculate all areas
+                for (const child of children) {
+                    pTot =
+                        (parent.width * parent.height) * (child.val / parent.val);
+                    group.addElement(pTot);
+                    if (group.lP.nR > group.lP.lR) {
+                        series.algorithmCalcPoints(directionChange, false, group, childrenArea, plot // @todo no supported
+                        );
+                    }
+                    // If last child, then calculate all remaining areas
+                    if (i === end) {
+                        series.algorithmCalcPoints(directionChange, true, group, childrenArea, plot // @todo not supported
+                        );
+                    }
+                    ++i;
+                }
+                return childrenArea;
+            }
+            /**
+             * Over the alignment method by setting z index.
+             * @private
+             */
+            alignDataLabel(point, dataLabel, labelOptions) {
+                const style = labelOptions.style;
+                // #8160: Prevent the label from exceeding the point's
+                // boundaries in treemaps by applying ellipsis overflow.
+                // The issue was happening when datalabel's text contained a
+                // long sequence of characters without a whitespace.
+                if (style &&
+                    !defined(style.textOverflow) &&
+                    dataLabel.text &&
+                    dataLabel.getBBox().width > (dataLabel.text.textWidth || 0)) {
+                    dataLabel.css({
+                        textOverflow: 'ellipsis',
+                        // Unit (px) is required when useHTML is true
+                        width: style.width += 'px'
+                    });
+                }
+                ColumnSeries.prototype.alignDataLabel.apply(this, arguments);
+                if (point.dataLabel) {
+                    // `point.node.zIndex` could be undefined (#6956)
+                    point.dataLabel.attr({ zIndex: (point.node.zIndex || 0) + 1 });
+                }
+            }
+            /**
+             * Recursive function which calculates the area for all children of a
+             * node.
+             *
+             * @private
+             * @function Highcharts.Series#calculateChildrenAreas
+             *
+             * @param {Object} parent
+             * The node which is parent to the children.
+             *
+             * @param {Object} area
+             * The rectangular area of the parent.
+             */
+            calculateChildrenAreas(parent, area) {
+                const series = this, options = series.options, mapOptionsToLevel = series.mapOptionsToLevel, level = mapOptionsToLevel[parent.level + 1], algorithm = pick((series[(level && level.layoutAlgorithm)] &&
+                    level.layoutAlgorithm), options.layoutAlgorithm), alternate = options.alternateStartingDirection, 
+                // Collect all children which should be included
+                children = parent.children.filter((n) => !n.ignore);
+                let childrenValues = [];
+                if (level && level.layoutStartingDirection) {
+                    area.direction = level.layoutStartingDirection === 'vertical' ?
+                        0 :
+                        1;
+                }
+                childrenValues = series[algorithm](area, children);
+                let i = -1;
+                for (const child of children) {
+                    const values = childrenValues[++i];
+                    child.values = merge(values, {
+                        val: child.childrenTotal,
+                        direction: (alternate ? 1 - area.direction : area.direction)
+                    });
+                    child.pointValues = merge(values, {
+                        x: (values.x / series.axisRatio),
+                        // Flip y-values to avoid visual regression with csvCoord in
+                        // Axis.translate at setPointValues. #12488
+                        y: axisMax - values.y - values.height,
+                        width: (values.width / series.axisRatio)
+                    });
+                    // If node has children, then call method recursively
+                    if (child.children.length) {
+                        series.calculateChildrenAreas(child, child.values);
+                    }
+                }
+            }
+            /**
+             * Create level list.
+             * @private
+             */
+            createList(e) {
+                const chart = this.chart, breadcrumbs = chart.breadcrumbs, list = [];
+                if (breadcrumbs) {
+                    let currentLevelNumber = 0;
+                    list.push({
+                        level: currentLevelNumber,
+                        levelOptions: chart.series[0]
+                    });
+                    let node = e.target.nodeMap[e.newRootId];
+                    const extraNodes = [];
+                    // When the root node is set and has parent,
+                    // recreate the path from the node tree.
+                    while (node.parent || node.parent === '') {
+                        extraNodes.push(node);
+                        node = e.target.nodeMap[node.parent];
+                    }
+                    for (const node of extraNodes.reverse()) {
+                        list.push({
+                            level: ++currentLevelNumber,
+                            levelOptions: node
+                        });
+                    }
+                    // If the list has only first element, we should clear it
+                    if (list.length <= 1) {
+                        list.length = 0;
+                    }
+                }
+                return list;
+            }
+            /**
+             * Extend drawDataLabels with logic to handle custom options related to
+             * the treemap series:
+             *
+             * - Points which is not a leaf node, has dataLabels disabled by
+             *   default.
+             *
+             * - Options set on series.levels is merged in.
+             *
+             * - Width of the dataLabel is set to match the width of the point
+             *   shape.
+             *
+             * @private
+             */
+            drawDataLabels() {
+                const series = this, mapOptionsToLevel = series.mapOptionsToLevel, points = series.points.filter(function (n) {
+                    return n.node.visible;
+                });
+                let options, level;
+                for (const point of points) {
+                    level = mapOptionsToLevel[point.node.level];
+                    // Set options to new object to avoid problems with scope
+                    options = { style: {} };
+                    // If not a leaf, then label should be disabled as default
+                    if (!point.node.isLeaf) {
+                        options.enabled = false;
+                    }
+                    // If options for level exists, include them as well
+                    if (level && level.dataLabels) {
+                        options = merge(options, level.dataLabels);
+                        series.hasDataLabels = () => true;
+                    }
+                    // Set dataLabel width to the width of the point shape.
+                    if (point.shapeArgs) {
+                        options.style.width = point.shapeArgs.width;
+                        if (point.dataLabel) {
+                            point.dataLabel.css({
+                                width: point.shapeArgs.width + 'px'
+                            });
+                        }
+                    }
+                    // Merge custom options with point options
+                    point.dlOptions = merge(options, point.options.dataLabels);
+                }
+                super.drawDataLabels();
+            }
+            /**
+             * Override drawPoints
+             * @private
+             */
+            drawPoints(points = this.points) {
+                const series = this, chart = series.chart, renderer = chart.renderer, styledMode = chart.styledMode, options = series.options, shadow = styledMode ? {} : options.shadow, borderRadius = options.borderRadius, withinAnimationLimit = chart.pointCount < options.animationLimit, allowTraversingTree = options.allowTraversingTree;
+                for (const point of points) {
+                    const levelDynamic = point.node.levelDynamic, animatableAttribs = {}, attribs = {}, css = {}, groupKey = 'level-group-' + point.node.level, hasGraphic = !!point.graphic, shouldAnimate = withinAnimationLimit && hasGraphic, shapeArgs = point.shapeArgs;
+                    // Don't bother with calculate styling if the point is not drawn
+                    if (point.shouldDraw()) {
+                        point.isInside = true;
+                        if (borderRadius) {
+                            attribs.r = borderRadius;
+                        }
+                        merge(true, // Extend object
+                        // Which object to extend
+                        shouldAnimate ? animatableAttribs : attribs, 
+                        // Add shapeArgs to animate/attr if graphic exists
+                        hasGraphic ? shapeArgs : {}, 
+                        // Add style attribs if !styleMode
+                        styledMode ?
+                            {} :
+                            series.pointAttribs(point, point.selected ? 'select' : void 0));
+                        // In styled mode apply point.color. Use CSS, otherwise the
+                        // fill used in the style sheet will take precedence over
+                        // the fill attribute.
+                        if (series.colorAttribs && styledMode) {
+                            // Heatmap is loaded
+                            extend(css, series.colorAttribs(point));
+                        }
+                        if (!series[groupKey]) {
+                            series[groupKey] = renderer.g(groupKey)
+                                .attr({
+                                // @todo Set the zIndex based upon the number of
+                                // levels, instead of using 1000
+                                zIndex: 1000 - (levelDynamic || 0)
+                            })
+                                .add(series.group);
+                            series[groupKey].survive = true;
+                        }
+                    }
+                    // Draw the point
+                    point.draw({
+                        animatableAttribs,
+                        attribs,
+                        css,
+                        group: series[groupKey],
+                        imageUrl: point.imageUrl,
+                        renderer,
+                        shadow,
+                        shapeArgs,
+                        shapeType: point.shapeType
+                    });
+                    // If setRootNode is allowed, set a point cursor on clickables &
+                    // add drillId to point
+                    if (allowTraversingTree && point.graphic) {
+                        point.drillId = options.interactByLeaf ?
+                            series.drillToByLeaf(point) :
+                            series.drillToByGroup(point);
+                    }
+                }
+            }
+            /**
+             * Finds the drill id for a parent node. Returns false if point should
+             * not have a click event.
+             * @private
+             */
+            drillToByGroup(point) {
+                let drillId = false;
+                if (!point.node.isLeaf &&
+                    (point.node.level - this.nodeMap[this.rootNode].level) === 1) {
+                    drillId = point.id;
+                }
+                return drillId;
+            }
+            /**
+             * Finds the drill id for a leaf node. Returns false if point should not
+             * have a click event
+             * @private
+             */
+            drillToByLeaf(point) {
+                let drillId = false, nodeParent;
+                if ((point.node.parent !== this.rootNode) &&
+                    point.node.isLeaf) {
+                    nodeParent = point.node;
+                    while (!drillId) {
+                        nodeParent = this.nodeMap[nodeParent.parent];
+                        if (nodeParent.parent === this.rootNode) {
+                            drillId = nodeParent.id;
+                        }
+                    }
+                }
+                return drillId;
+            }
+            /**
+             * @todo remove this function at a suitable version.
+             * @private
+             */
+            drillToNode(id, redraw) {
+                error(32, false, void 0, { 'treemap.drillToNode': 'use treemap.setRootNode' });
+                this.setRootNode(id, redraw);
+            }
+            drillUp() {
+                const series = this, node = series.nodeMap[series.rootNode];
+                if (node && isString(node.parent)) {
+                    series.setRootNode(node.parent, true, { trigger: 'traverseUpButton' });
+                }
+            }
+            getExtremes() {
+                // Get the extremes from the value data
+                const { dataMin, dataMax } = super.getExtremes(this.colorValueData);
+                this.valueMin = dataMin;
+                this.valueMax = dataMax;
+                // Get the extremes from the y data
+                return super.getExtremes();
+            }
+            /**
+             * Creates an object map from parent id to childrens index.
+             *
+             * @private
+             * @function Highcharts.Series#getListOfParents
+             *
+             * @param {Highcharts.SeriesTreemapDataOptions} [data]
+             *        List of points set in options.
+             *
+             * @param {Array<string>} [existingIds]
+             *        List of all point ids.
+             *
+             * @return {Object}
+             *         Map from parent id to children index in data.
+             */
+            getListOfParents(data, existingIds) {
+                const arr = isArray(data) ? data : [], ids = isArray(existingIds) ? existingIds : [], listOfParents = arr.reduce(function (prev, curr, i) {
+                    const parent = pick(curr.parent, '');
+                    if (typeof prev[parent] === 'undefined') {
+                        prev[parent] = [];
+                    }
+                    prev[parent].push(i);
+                    return prev;
+                }, {
+                    '': [] // Root of tree
+                });
+                // If parent does not exist, hoist parent to root of tree.
+                for (const parent of Object.keys(listOfParents)) {
+                    const children = listOfParents[parent];
+                    if ((parent !== '') && (ids.indexOf(parent) === -1)) {
+                        for (const child of children) {
+                            listOfParents[''].push(child);
+                        }
+                        delete listOfParents[parent];
+                    }
+                }
+                return listOfParents;
+            }
+            /**
+             * Creates a tree structured object from the series points.
+             * @private
+             */
+            getTree() {
+                const series = this, allIds = this.data.map(function (d) {
+                    return d.id;
+                }), parentList = series.getListOfParents(this.data, allIds);
+                series.nodeMap = {};
+                series.nodeList = [];
+                return series.buildTree('', -1, 0, parentList);
+            }
+            buildTree(id, index, level, list, parent) {
+                const series = this, children = [], point = series.points[index];
+                let height = 0, child;
+                // Actions
+                for (const i of (list[id] || [])) {
+                    child = series.buildTree(series.points[i].id, i, level + 1, list, id);
+                    height = Math.max(child.height + 1, height);
+                    children.push(child);
+                }
+                const node = new series.NodeClass().init(id, index, children, height, level, series, parent);
+                for (const child of children) {
+                    child.parentNode = node;
+                }
+                series.nodeMap[node.id] = node;
+                series.nodeList.push(node);
+                if (point) {
+                    point.node = node;
+                    node.point = point;
+                }
+                return node;
+            }
+            /**
+             * Define hasData function for non-cartesian series. Returns true if the
+             * series has points at all.
+             * @private
+             */
+            hasData() {
+                return !!this.processedXData.length; // != 0
+            }
+            init(chart, options) {
+                const series = this, breadcrumbsOptions = merge(options.drillUpButton, options.breadcrumbs), setOptionsEvent = addEvent(series, 'setOptions', (event) => {
+                    const options = event.userOptions;
+                    if (defined(options.allowDrillToNode) &&
+                        !defined(options.allowTraversingTree)) {
+                        options.allowTraversingTree = options.allowDrillToNode;
+                        delete options.allowDrillToNode;
+                    }
+                    if (defined(options.drillUpButton) &&
+                        !defined(options.traverseUpButton)) {
+                        options.traverseUpButton = options.drillUpButton;
+                        delete options.drillUpButton;
+                    }
+                });
+                super.init(chart, options);
+                // Treemap's opacity is a different option from other series
+                delete series.opacity;
+                // Handle deprecated options.
+                series.eventsToUnbind.push(setOptionsEvent);
+                if (series.options.allowTraversingTree) {
+                    series.eventsToUnbind.push(addEvent(series, 'click', series.onClickDrillToNode));
+                    series.eventsToUnbind.push(addEvent(series, 'setRootNode', function (e) {
+                        const chart = series.chart;
+                        if (chart.breadcrumbs) {
+                            // Create a list using the event after drilldown.
+                            chart.breadcrumbs.updateProperties(series.createList(e));
+                        }
+                    }));
+                    series.eventsToUnbind.push(addEvent(series, 'update', 
+                    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+                    function (e, redraw) {
+                        const breadcrumbs = this.chart.breadcrumbs;
+                        if (breadcrumbs && e.options.breadcrumbs) {
+                            breadcrumbs.update(e.options.breadcrumbs);
+                        }
+                    }));
+                    series.eventsToUnbind.push(addEvent(series, 'destroy', function destroyEvents(e) {
+                        const chart = this.chart;
+                        if (chart.breadcrumbs && !e.keepEventsForUpdate) {
+                            chart.breadcrumbs.destroy();
+                            chart.breadcrumbs = void 0;
+                        }
+                    }));
+                }
+                if (!chart.breadcrumbs) {
+                    chart.breadcrumbs = new Breadcrumbs(chart, breadcrumbsOptions);
+                }
+                series.eventsToUnbind.push(addEvent(chart.breadcrumbs, 'up', function (e) {
+                    const drillUpsNumber = this.level - e.newLevel;
+                    for (let i = 0; i < drillUpsNumber; i++) {
+                        series.drillUp();
+                    }
+                }));
+            }
+            /**
+             * Add drilling on the suitable points.
+             * @private
+             */
+            onClickDrillToNode(event) {
+                const series = this, point = event.point, drillId = point && point.drillId;
+                // If a drill id is returned, add click event and cursor.
+                if (isString(drillId)) {
+                    point.setState(''); // Remove hover
+                    series.setRootNode(drillId, true, { trigger: 'click' });
+                }
+            }
+            /**
+             * Get presentational attributes
+             * @private
+             */
+            pointAttribs(point, state) {
+                const series = this, mapOptionsToLevel = (isObject(series.mapOptionsToLevel) ?
+                    series.mapOptionsToLevel :
+                    {}), level = point && mapOptionsToLevel[point.node.level] || {}, options = this.options, stateOptions = state && options.states && options.states[state] || {}, className = (point && point.getClassName()) || '', 
+                // Set attributes by precedence. Point trumps level trumps series.
+                // Stroke width uses pick because it can be 0.
+                attr = {
+                    'stroke': (point && point.borderColor) ||
+                        level.borderColor ||
+                        stateOptions.borderColor ||
+                        options.borderColor,
+                    'stroke-width': pick(point && point.borderWidth, level.borderWidth, stateOptions.borderWidth, options.borderWidth),
+                    'dashstyle': (point && point.borderDashStyle) ||
+                        level.borderDashStyle ||
+                        stateOptions.borderDashStyle ||
+                        options.borderDashStyle,
+                    'fill': (point && point.color) || this.color
+                };
+                let opacity;
+                // Hide levels above the current view
+                if (className.indexOf('highcharts-above-level') !== -1) {
+                    attr.fill = 'none';
+                    attr['stroke-width'] = 0;
+                    // Nodes with children that accept interaction
+                }
+                else if (className.indexOf('highcharts-internal-node-interactive') !== -1) {
+                    opacity = pick(stateOptions.opacity, options.opacity);
+                    attr.fill = color(attr.fill).setOpacity(opacity).get();
+                    attr.cursor = 'pointer';
+                    // Hide nodes that have children
+                }
+                else if (className.indexOf('highcharts-internal-node') !== -1) {
+                    attr.fill = 'none';
+                }
+                else if (state) {
+                    // Brighten and hoist the hover nodes
+                    attr.fill = color(attr.fill)
+                        .brighten(stateOptions.brightness)
+                        .get();
+                }
+                return attr;
+            }
+            /**
+             * Set the node's color recursively, from the parent down.
+             * @private
+             */
+            setColorRecursive(node, parentColor, colorIndex, index, siblings) {
+                const series = this, chart = series && series.chart, colors = chart && chart.options && chart.options.colors;
+                if (node) {
+                    const colorInfo = getColor(node, {
+                        colors: colors,
+                        index: index,
+                        mapOptionsToLevel: series.mapOptionsToLevel,
+                        parentColor: parentColor,
+                        parentColorIndex: colorIndex,
+                        series: series,
+                        siblings: siblings
+                    }), point = series.points[node.i];
+                    if (point) {
+                        point.color = colorInfo.color;
+                        point.colorIndex = colorInfo.colorIndex;
+                    }
+                    let i = -1;
+                    // Do it all again with the children
+                    for (const child of (node.children || [])) {
+                        series.setColorRecursive(child, colorInfo.color, colorInfo.colorIndex, ++i, node.children.length);
+                    }
+                }
+            }
+            setPointValues() {
+                const series = this;
+                const { points, xAxis, yAxis } = series;
+                const styledMode = series.chart.styledMode;
+                // Get the crisp correction in classic mode. For this to work in
+                // styled mode, we would need to first add the shape (without x,
+                // y, width and height), then read the rendered stroke width
+                // using point.graphic.strokeWidth(), then modify and apply the
+                // shapeArgs. This applies also to column series, but the
+                // downside is performance and code complexity.
+                const getStrokeWidth = (point) => (styledMode ?
+                    0 :
+                    (series.pointAttribs(point)['stroke-width'] || 0));
+                for (const point of points) {
+                    const { pointValues: values, visible } = point.node;
+                    // Points which is ignored, have no values.
+                    if (values && visible) {
+                        const { height, width, x, y } = values;
+                        const strokeWidth = getStrokeWidth(point);
+                        const x1 = crisp(xAxis.toPixels(x, true), strokeWidth, true);
+                        const x2 = crisp(xAxis.toPixels(x + width, true), strokeWidth, true);
+                        const y1 = crisp(yAxis.toPixels(y, true), strokeWidth, true);
+                        const y2 = crisp(yAxis.toPixels(y + height, true), strokeWidth, true);
+                        // Set point values
+                        const shapeArgs = {
+                            x: Math.min(x1, x2),
+                            y: Math.min(y1, y2),
+                            width: Math.abs(x2 - x1),
+                            height: Math.abs(y2 - y1)
+                        };
+                        point.plotX = shapeArgs.x + (shapeArgs.width / 2);
+                        point.plotY = shapeArgs.y + (shapeArgs.height / 2);
+                        point.shapeArgs = shapeArgs;
+                    }
+                    else {
+                        // Reset visibility
+                        delete point.plotX;
+                        delete point.plotY;
+                    }
+                }
+            }
+            /**
+             * Sets a new root node for the series.
+             *
+             * @private
+             * @function Highcharts.Series#setRootNode
+             *
+             * @param {string} id
+             * The id of the new root node.
+             *
+             * @param {boolean} [redraw=true]
+             * Whether to redraw the chart or not.
+             *
+             * @param {Object} [eventArguments]
+             * Arguments to be accessed in event handler.
+             *
+             * @param {string} [eventArguments.newRootId]
+             * Id of the new root.
+             *
+             * @param {string} [eventArguments.previousRootId]
+             * Id of the previous root.
+             *
+             * @param {boolean} [eventArguments.redraw]
+             * Whether to redraw the chart after.
+             *
+             * @param {Object} [eventArguments.series]
+             * The series to update the root of.
+             *
+             * @param {string} [eventArguments.trigger]
+             * The action which triggered the event. Undefined if the setRootNode is
+             * called directly.
+             *
+             * @emits Highcharts.Series#event:setRootNode
+             */
+            setRootNode(id, redraw, eventArguments) {
+                const series = this, eventArgs = extend({
+                    newRootId: id,
+                    previousRootId: series.rootNode,
+                    redraw: pick(redraw, true),
+                    series: series
+                }, eventArguments);
+                /**
+                 * The default functionality of the setRootNode event.
+                 *
+                 * @private
+                 * @param {Object} args The event arguments.
+                 * @param {string} args.newRootId Id of the new root.
+                 * @param {string} args.previousRootId Id of the previous root.
+                 * @param {boolean} args.redraw Whether to redraw the chart after.
+                 * @param {Object} args.series The series to update the root of.
+                 * @param {string} [args.trigger=undefined] The action which
+                 * triggered the event. Undefined if the setRootNode is called
+                 * directly.
+                     */
+                const defaultFn = function (args) {
+                    const series = args.series;
+                    // Store previous and new root ids on the series.
+                    series.idPreviousRoot = args.previousRootId;
+                    series.rootNode = args.newRootId;
+                    // Redraw the chart
+                    series.isDirty = true; // Force redraw
+                    if (args.redraw) {
+                        series.chart.redraw();
+                    }
+                };
+                // Fire setRootNode event.
+                fireEvent(series, 'setRootNode', eventArgs, defaultFn);
+            }
+            /**
+             * Workaround for `inactive` state. Since `series.opacity` option is
+             * already reserved, don't use that state at all by disabling
+             * `inactiveOtherPoints` and not inheriting states by points.
+             * @private
+             */
+            setState(state) {
+                this.options.inactiveOtherPoints = true;
+                super.setState(state, false);
+                this.options.inactiveOtherPoints = false;
+            }
+            setTreeValues(tree) {
+                const series = this, options = series.options, idRoot = series.rootNode, mapIdToNode = series.nodeMap, nodeRoot = mapIdToNode[idRoot], levelIsConstant = (typeof options.levelIsConstant === 'boolean' ?
+                    options.levelIsConstant :
+                    true), children = [], point = series.points[tree.i];
+                // First give the children some values
+                let childrenTotal = 0;
+                for (let child of tree.children) {
+                    child = series.setTreeValues(child);
+                    children.push(child);
+                    if (!child.ignore) {
+                        childrenTotal += child.val;
+                    }
+                }
+                // Sort the children
+                stableSort(children, (a, b) => ((a.sortIndex || 0) - (b.sortIndex || 0)));
+                // Set the values
+                const val = pick(point && point.options.value, childrenTotal);
+                if (point) {
+                    point.value = val;
+                }
+                extend(tree, {
+                    children: children,
+                    childrenTotal: childrenTotal,
+                    // Ignore this node if point is not visible
+                    ignore: !(pick(point && point.visible, true) && (val > 0)),
+                    isLeaf: tree.visible && !childrenTotal,
+                    levelDynamic: (tree.level - (levelIsConstant ? 0 : nodeRoot.level)),
+                    name: pick(point && point.name, ''),
+                    sortIndex: pick(point && point.sortIndex, -val),
+                    val: val
+                });
+                return tree;
+            }
+            sliceAndDice(parent, children) {
+                return this.algorithmFill(true, parent, children);
+            }
+            squarified(parent, children) {
+                return this.algorithmLowAspectRatio(true, parent, children);
+            }
+            strip(parent, children) {
+                return this.algorithmLowAspectRatio(false, parent, children);
+            }
+            stripes(parent, children) {
+                return this.algorithmFill(false, parent, children);
+            }
+            translate() {
+                const series = this, options = series.options;
+                let // NOTE: updateRootId modifies series.
+                rootId = updateRootId(series), rootNode, pointValues, seriesArea, val;
+                // Call prototype function
+                super.translate();
+                // @todo Only if series.isDirtyData is true
+                const tree = series.tree = series.getTree();
+                rootNode = series.nodeMap[rootId];
+                if (rootId !== '' &&
+                    (!rootNode || !rootNode.children.length)) {
+                    series.setRootNode('', false);
+                    rootId = series.rootNode;
+                    rootNode = series.nodeMap[rootId];
+                }
+                series.mapOptionsToLevel = getLevelOptions({
+                    from: rootNode.level + 1,
+                    levels: options.levels,
+                    to: tree.height,
+                    defaults: {
+                        levelIsConstant: series.options.levelIsConstant,
+                        colorByPoint: options.colorByPoint
+                    }
+                });
+                // Parents of the root node is by default visible
+                TreemapUtilities.recursive(series.nodeMap[series.rootNode], (node) => {
+                    const p = node.parent;
+                    let next = false;
+                    node.visible = true;
+                    if (p || p === '') {
+                        next = series.nodeMap[p];
+                    }
+                    return next;
+                });
+                // Children of the root node is by default visible
+                TreemapUtilities.recursive(series.nodeMap[series.rootNode].children, (children) => {
+                    let next = false;
+                    for (const child of children) {
+                        child.visible = true;
+                        if (child.children.length) {
+                            next = (next || []).concat(child.children);
+                        }
+                    }
+                    return next;
+                });
+                series.setTreeValues(tree);
+                // Calculate plotting values.
+                series.axisRatio = (series.xAxis.len / series.yAxis.len);
+                series.nodeMap[''].pointValues = pointValues = {
+                    x: 0,
+                    y: 0,
+                    width: axisMax,
+                    height: axisMax
+                };
+                series.nodeMap[''].values = seriesArea = merge(pointValues, {
+                    width: (pointValues.width * series.axisRatio),
+                    direction: (options.layoutStartingDirection === 'vertical' ? 0 : 1),
+                    val: tree.val
+                });
+                series.calculateChildrenAreas(tree, seriesArea);
+                // Logic for point colors
+                if (!series.colorAxis &&
+                    !options.colorByPoint) {
+                    series.setColorRecursive(series.tree);
+                }
+                // Update axis extremes according to the root node.
+                if (options.allowTraversingTree) {
+                    val = rootNode.pointValues;
+                    series.xAxis.setExtremes(val.x, val.x + val.width, false);
+                    series.yAxis.setExtremes(val.y, val.y + val.height, false);
+                    series.xAxis.setScale();
+                    series.yAxis.setScale();
+                }
+                // Assign values to points.
+                series.setPointValues();
+            }
+        }
+        /* *
+         *
+         *  Static Properties
+         *
+         * */
+        TreemapSeries.defaultOptions = merge(ScatterSeries.defaultOptions, TreemapSeriesDefaults);
+        extend(TreemapSeries.prototype, {
+            buildKDTree: noop,
+            colorAttribs: ColorMapComposition.seriesMembers.colorAttribs,
+            colorKey: 'colorValue',
+            directTouch: true,
+            getExtremesFromAll: true,
+            getSymbol: noop,
+            optionalAxis: 'colorAxis',
+            parallelArrays: ['x', 'y', 'value', 'colorValue'],
+            pointArrayMap: ['value'],
+            pointClass: TreemapPoint,
+            NodeClass: TreemapNode,
+            trackerGroups: ['group', 'dataLabelsGroup'],
+            utils: TreemapUtilities
+        });
+        ColorMapComposition.compose(TreemapSeries);
+        SeriesRegistry.registerSeriesType('treemap', TreemapSeries);
+        /* *
+         *
+         *  Default Export
+         *
+         * */
+
+        return TreemapSeries;
+    });
+    _registerModule(_modules, 'masters/modules/treemap.src.js', [_modules['Core/Globals.js'], _modules['Extensions/Breadcrumbs/Breadcrumbs.js'], _modules['Series/Treemap/TreemapSeries.js']], function (Highcharts, Breadcrumbs, TreemapSeries) {
+
+        const G = Highcharts;
+        G.Breadcrumbs = G.Breadcrumbs || Breadcrumbs;
+        G.Breadcrumbs.compose(G.Chart, G.defaultOptions);
+        TreemapSeries.compose(G.Series);
+
+        return Highcharts;
     });
 }));

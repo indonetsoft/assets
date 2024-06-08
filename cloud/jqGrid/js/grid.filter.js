@@ -219,7 +219,7 @@ $.fn.jqFilter = function( arg ) {
 
 			if(this.p.ruleButtons === true) {
 			// dropdown for: choosing group operator type
-			var groupOpSelect = $("<select size='1' class='opsel " + classes.srSelect + "'></select>");
+			var groupOpSelect = $("<select size='1' name='select_group_op' class='opsel " + classes.srSelect + "'></select>");
 			th.append(groupOpSelect);
 			// populate dropdown with all posible group operators: or, and
 			var str= "", selected;
@@ -238,7 +238,7 @@ $.fn.jqFilter = function( arg ) {
 			// button for adding a new subgroup
 			var inputAddSubgroup ="<span></span>";
 			if(this.p.groupButton) {
-				inputAddSubgroup = $("<input type='button' value='+ {}' title='" +that.p.addsubgrup+"' class='add-group " + common.button + "'/>");
+				inputAddSubgroup = $("<input type='button' value='+ {}' title='" +that.p.addsubgrup+"' class='add-group " + common.button + "' name='newsubgroup'/>");
 				inputAddSubgroup.on('click',function() {
 					if (group.groups === undefined ) {
 						group.groups = [];
@@ -259,7 +259,7 @@ $.fn.jqFilter = function( arg ) {
 			th.append(inputAddSubgroup);
 			if(this.p.ruleButtons === true) {
 			// button for adding a new rule
-			var inputAddRule = $("<input type='button' value='+' title='"+that.p.addrule+"' class='add-rule ui-add " + common.button + "'/>"), cm;
+			var inputAddRule = $("<input type='button' value='+' title='"+that.p.addrule+"' class='add-rule ui-add " + common.button + "'/ name='newrule'>"), cm;
 			inputAddRule.on('click',function() {
 				//if(!group) { group = {};}
 				if (group.rules === undefined) {
@@ -300,7 +300,7 @@ $.fn.jqFilter = function( arg ) {
 
 			// button for delete the group
 			if (parentgroup !== null) { // ignore the first group
-				var inputDeleteGroup = $("<input type='button' value='-' title='"+that.p.delgroup+"' class='delete-group " + common.button + "'/>");
+				var inputDeleteGroup = $("<input type='button' value='-' title='"+that.p.delgroup+"' class='delete-group " + common.button + "'/ name='delgroup'>");
 				th.append(inputDeleteGroup);
 				inputDeleteGroup.on('click',function() {
 				// remove group from parent
@@ -386,7 +386,7 @@ $.fn.jqFilter = function( arg ) {
 
 
 			// dropdown for: choosing field
-			var ruleFieldSelect = $("<select size='1' class='" + classes.srSelect + "'></select>"), ina, aoprs = [];
+			var ruleFieldSelect = $("<select size='1' name='select_field' class='" + classes.srSelect + "'></select>"), ina, aoprs = [];
 			ruleFieldTd.append(ruleFieldSelect);
 			ruleFieldSelect.on('change',function() {
 				if( that.p.ruleButtons && that.p.uniqueSearchFields ) {
@@ -517,7 +517,7 @@ $.fn.jqFilter = function( arg ) {
 				$(ruleDataInput).attr('disabled','true');
 			} //retain the state of disabled text fields in case of null ops
 			// dropdown for: choosing operator
-			var ruleOperatorSelect = $("<select size='1' class='selectopts " + classes.srSelect + "'></select>");
+			var ruleOperatorSelect = $("<select size='1' name='select_oper' class='selectopts " + classes.srSelect + "'></select>");
 			ruleOperatorTd.append(ruleOperatorSelect);
 			ruleOperatorSelect.on('change',function() {
 				rule.op = $(ruleOperatorSelect).val();
@@ -574,7 +574,7 @@ $.fn.jqFilter = function( arg ) {
 
 			// create button for: delete rule
 			if(this.p.ruleButtons === true) {
-			var ruleDeleteInput = $("<input type='button' value='-' title='"+that.p.delrule+"' class='delete-rule ui-del " + common.button + "'/>");
+			var ruleDeleteInput = $("<input type='button' value='-' title='"+that.p.delrule+"' class='delete-rule ui-del " + common.button + "'/ name='delrule'>");
 			ruleDeleteTd.append(ruleDeleteInput);
 			//$(ruleDeleteInput).html("").height(20).width(30).button({icons: {  primary: "ui-icon-minus", text:false}});
 			ruleDeleteInput.on('click',function() {
@@ -1062,6 +1062,8 @@ $.jgrid.extend({
 					$elem = $("#gs_"+$t.p.idPrefix+$.jgrid.jqID(this.name),(this.frozen===true && $t.p.frozenColumns === true) ?  $t.grid.fhDiv : $t.grid.hDiv);
 					if(this.searchoptions && this.searchoptions.defaultValue !== undefined) {
 						v = this.searchoptions.defaultValue;
+					} else {
+						v = undefined;
 					}
 					nm = this.index || this.name;
 					so[nm] = this.searchoptions && this.searchoptions.sopt ? this.searchoptions.sopt[0] : p.defaultSearch || 'eq';
@@ -1383,6 +1385,7 @@ $.jgrid.extend({
 									fn : function(e) {
 										var key = e.charCode || e.keyCode || 0;
 										if(key === 13){
+											e.preventDefault();
 											triggerToolbar();
 											return false;
 										}
@@ -1397,6 +1400,7 @@ $.jgrid.extend({
 										if( dKeys.has(key)) {
 											// do nothing
 										} else if( key === 13 ) {
+											e.preventDefault();
 											return false;
 										} else {
 											if(timeoutHnd) { clearTimeout(timeoutHnd); }
@@ -1490,6 +1494,7 @@ $.jgrid.extend({
 			});
 			$(".clearsearchclass",tr).keydown(function(event) {
 				if (event.keyCode === 13) {
+					event.preventDefault();
 					$(".clearsearchclass", tr).trigger("click");
 				}
 			});
@@ -1783,7 +1788,7 @@ $.jgrid.extend({
 				if(p.tmplNames && p.tmplNames.length) {
 					found = true;
 					tmpl = "<tr><td class='ui-search-label'>"+ p.tmplLabel +"</td>";
-					tmpl += "<td><select size='1' class='ui-template " + classes.srSelect + "'>";
+					tmpl += "<td><select size='1' name='select_template' class='ui-template " + classes.srSelect + "'>";
 					tmpl += "<option value='default'>Default</option>";
 					$.each(p.tmplNames, function(i,n){
 						tmpl += "<option value='"+i+"'>"+n+"</option>";
@@ -1874,6 +1879,7 @@ $.jgrid.extend({
 								!$target.hasClass('add-group') && !$target.hasClass('add-rule') &&
 								!$target.hasClass('delete-group') && !$target.hasClass('delete-rule') &&
 								(!$target.hasClass("fm-button") || !$target.is("[id$=_query]"))) {
+							e.preventDefault();
 							$("#"+fid+"_search").click();
 							return false;
 						}

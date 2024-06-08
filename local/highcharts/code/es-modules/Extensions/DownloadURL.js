@@ -1,6 +1,6 @@
 /* *
  *
- *  (c) 2015-2020 Oystein Moseng
+ *  (c) 2015-2024 Oystein Moseng
  *
  *  License: www.highcharts.com/license
  *
@@ -10,8 +10,24 @@
  *
  * */
 'use strict';
-import Highcharts from '../Core/Globals.js';
-var win = Highcharts.win, nav = win.navigator, doc = win.document, domurl = win.URL || win.webkitURL || win, isEdgeBrowser = /Edge\/\d+/.test(nav.userAgent);
+/* *
+ *
+ *  Imports
+ *
+ * */
+import H from '../Core/Globals.js';
+const { isSafari, win, win: { document: doc } } = H;
+/* *
+ *
+ *  Constants
+ *
+ * */
+const domurl = win.URL || win.webkitURL || win;
+/* *
+ *
+ *  Functions
+ *
+ * */
 /**
  * Convert base64 dataURL to Blob if supported, otherwise returns undefined.
  * @private
@@ -21,26 +37,26 @@ var win = Highcharts.win, nav = win.navigator, doc = win.document, domurl = win.
  * @return {string|undefined}
  *         Blob
  */
-var dataURLtoBlob = Highcharts.dataURLtoBlob = function (dataURL) {
-    var parts = dataURL
+function dataURLtoBlob(dataURL) {
+    const parts = dataURL
         .replace(/filename=.*;/, '')
         .match(/data:([^;]*)(;base64)?,([0-9A-Za-z+/]+)/);
     if (parts &&
         parts.length > 3 &&
-        win.atob &&
+        (win.atob) &&
         win.ArrayBuffer &&
         win.Uint8Array &&
         win.Blob &&
-        domurl.createObjectURL) {
+        (domurl.createObjectURL)) {
         // Try to convert data URL to Blob
-        var binStr = win.atob(parts[3]), buf = new win.ArrayBuffer(binStr.length), binary = new win.Uint8Array(buf);
-        for (var i = 0; i < binary.length; ++i) {
+        const binStr = win.atob(parts[3]), buf = new win.ArrayBuffer(binStr.length), binary = new win.Uint8Array(buf);
+        for (let i = 0; i < binary.length; ++i) {
             binary[i] = binStr.charCodeAt(i);
         }
-        var blob = new win.Blob([binary], { 'type': parts[1] });
-        return domurl.createObjectURL(blob);
+        return domurl
+            .createObjectURL(new win.Blob([binary], { 'type': parts[1] }));
     }
-};
+}
 /**
  * Download a data URL in the browser. Can also take a blob as first param.
  *
@@ -52,8 +68,8 @@ var dataURLtoBlob = Highcharts.dataURLtoBlob = function (dataURL) {
  *        The name of the resulting file (w/extension)
  * @return {void}
  */
-var downloadURL = Highcharts.downloadURL = function (dataURL, filename) {
-    var a = doc.createElement('a'), windowRef;
+function downloadURL(dataURL, filename) {
+    const nav = win.navigator, a = doc.createElement('a');
     // IE specific blob implementation
     // Don't use for normal dataURLs
     if (typeof dataURL !== 'string' &&
@@ -62,10 +78,18 @@ var downloadURL = Highcharts.downloadURL = function (dataURL, filename) {
         nav.msSaveOrOpenBlob(dataURL, filename);
         return;
     }
-    dataURL = "" + dataURL;
-    // Some browsers have limitations for data URL lengths. Try to convert to
-    // Blob or fall back. Edge always needs that blob.
-    if (isEdgeBrowser || dataURL.length > 2000000) {
+    dataURL = '' + dataURL;
+    if (nav.userAgent.length > 1000 /* RegexLimits.shortLimit */) {
+        throw new Error('Input too long');
+    }
+    const // Some browsers have limitations for data URL lengths. Try to convert
+    // to Blob or fall back. Edge always needs that blob.
+    isOldEdgeBrowser = /Edge\/\d+/.test(nav.userAgent), 
+    // Safari on iOS needs Blob in order to download PDF
+    safariBlob = (isSafari &&
+        typeof dataURL === 'string' &&
+        dataURL.indexOf('data:application/pdf') === 0);
+    if (safariBlob || isOldEdgeBrowser || dataURL.length > 2000000) {
         dataURL = dataURLtoBlob(dataURL) || '';
         if (!dataURL) {
             throw new Error('Failed to convert to blob');
@@ -82,19 +106,23 @@ var downloadURL = Highcharts.downloadURL = function (dataURL, filename) {
     else {
         // No download attr, just opening data URI
         try {
-            windowRef = win.open(dataURL, 'chart');
-            if (typeof windowRef === 'undefined' || windowRef === null) {
+            if (!win.open(dataURL, 'chart')) {
                 throw new Error('Failed to open window');
             }
         }
-        catch (e) {
-            // window.open failed, trying location.href
+        catch {
+            // If window.open failed, try location.href
             win.location.href = dataURL;
         }
     }
+}
+/* *
+ *
+ *  Default Export
+ *
+ * */
+const DownloadURL = {
+    dataURLtoBlob,
+    downloadURL
 };
-var exports = {
-    dataURLtoBlob: dataURLtoBlob,
-    downloadURL: downloadURL
-};
-export default exports;
+export default DownloadURL;

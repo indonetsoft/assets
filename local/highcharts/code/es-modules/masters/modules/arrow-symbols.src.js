@@ -1,13 +1,17 @@
 /**
- * @license Highcharts JS v8.2.2 (2020-10-22)
+ * @license Highcharts JS v11.4.3 (2024-05-22)
  * @module highcharts/modules/arrow-symbols
  * @requires highcharts
  *
  * Arrow Symbols
  *
- * (c) 2017-2019 Lars A. V. Cabrera
+ * (c) 2017-2024 Lars A. V. Cabrera
  *
  * License: www.highcharts.com/license
  */
 'use strict';
-import '../../Extensions/ArrowSymbols.js';
+import Highcharts from '../../Core/Globals.js';
+import ArrowSymbols from '../../Extensions/ArrowSymbols.js';
+const G = Highcharts;
+ArrowSymbols.compose(G.SVGRenderer);
+export default Highcharts;

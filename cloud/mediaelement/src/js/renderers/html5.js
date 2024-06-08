@@ -149,8 +149,8 @@ const HtmlMediaElement = {
 			}
 		});
 
-		const event = createEvent('rendererready', node);
-		mediaElement.dispatchEvent(event);
+		const event = createEvent('rendererready', node, false);
+		mediaElement.originalNode.dispatchEvent(event);
 
 		return node;
 	}

@@ -1,6 +1,6 @@
 /* *
  *
- *  (c) 2010-2020 Torstein Honsi
+ *  (c) 2010-2024 Torstein Honsi
  *
  *  License: www.highcharts.com/license
  *
@@ -8,56 +8,52 @@
  *
  * */
 'use strict';
-/* globals Image, window */
+/* *
+ *
+ *  Namespace
+ *
+ * */
 /**
- * Reference to the global SVGElement class as a workaround for a name conflict
- * in the Highcharts namespace.
- *
- * @global
- * @typedef {global.SVGElement} GlobalSVGElement
- *
- * @see https://developer.mozilla.org/en-US/docs/Web/API/SVGElement
+ * Shared Highcharts properties.
+ * @private
  */
-// glob is a temporary fix to allow our es-modules to work.
-var glob = ( // @todo UMD variable named `window`, and glob named `win`
-typeof win !== 'undefined' ?
-    win :
-    typeof window !== 'undefined' ?
-        window :
-        {}), doc = glob.document, SVG_NS = 'http://www.w3.org/2000/svg', userAgent = (glob.navigator && glob.navigator.userAgent) || '', svg = (doc &&
-    doc.createElementNS &&
-    !!doc.createElementNS(SVG_NS, 'svg').createSVGRect), isMS = /(edge|msie|trident)/i.test(userAgent) && !glob.opera, isFirefox = userAgent.indexOf('Firefox') !== -1, isChrome = userAgent.indexOf('Chrome') !== -1, hasBidiBug = (isFirefox &&
-    parseInt(userAgent.split('Firefox/')[1], 10) < 4 // issue #38
-);
-var H = {
-    product: 'Highcharts',
-    version: '8.2.2',
-    deg2rad: Math.PI * 2 / 360,
-    doc: doc,
-    hasBidiBug: hasBidiBug,
-    hasTouch: !!glob.TouchEvent,
-    isMS: isMS,
-    isWebKit: userAgent.indexOf('AppleWebKit') !== -1,
-    isFirefox: isFirefox,
-    isChrome: isChrome,
-    isSafari: !isChrome && userAgent.indexOf('Safari') !== -1,
-    isTouchDevice: /(Mobile|Android|Windows Phone)/.test(userAgent),
-    SVG_NS: SVG_NS,
-    chartCount: 0,
-    seriesTypes: {},
-    symbolSizes: {},
-    svg: svg,
-    win: glob,
-    marginNames: ['plotTop', 'marginRight', 'marginBottom', 'plotLeft'],
-    noop: function () { },
-    /**
-     * Theme options that should get applied to the chart. In module mode it
-     * might not be possible to change this property because of read-only
-     * restrictions, instead use {@link Highcharts.setOptions}.
+var Globals;
+(function (Globals) {
+    /* *
      *
-     * @name Highcharts.theme
-     * @type {Highcharts.Options}
-     */
+     *  Constants
+     *
+     * */
+    Globals.SVG_NS = 'http://www.w3.org/2000/svg', Globals.product = 'Highcharts', Globals.version = '11.4.3', Globals.win = (typeof window !== 'undefined' ?
+        window :
+        {}), // eslint-disable-line node/no-unsupported-features/es-builtins
+    Globals.doc = Globals.win.document, Globals.svg = (Globals.doc &&
+        Globals.doc.createElementNS &&
+        !!Globals.doc.createElementNS(Globals.SVG_NS, 'svg').createSVGRect), Globals.userAgent = (Globals.win.navigator && Globals.win.navigator.userAgent) || '', Globals.isChrome = Globals.userAgent.indexOf('Chrome') !== -1, Globals.isFirefox = Globals.userAgent.indexOf('Firefox') !== -1, Globals.isMS = /(edge|msie|trident)/i.test(Globals.userAgent) && !Globals.win.opera, Globals.isSafari = !Globals.isChrome && Globals.userAgent.indexOf('Safari') !== -1, Globals.isTouchDevice = /(Mobile|Android|Windows Phone)/.test(Globals.userAgent), Globals.isWebKit = Globals.userAgent.indexOf('AppleWebKit') !== -1, Globals.deg2rad = Math.PI * 2 / 360, Globals.hasBidiBug = (Globals.isFirefox &&
+        parseInt(Globals.userAgent.split('Firefox/')[1], 10) < 4 // Issue #38
+    ), Globals.marginNames = [
+        'plotTop',
+        'marginRight',
+        'marginBottom',
+        'plotLeft'
+    ], Globals.noop = function () { }, Globals.supportsPassiveEvents = (function () {
+        // Checks whether the browser supports passive events, (#11353).
+        let supportsPassive = false;
+        // Object.defineProperty doesn't work on IE as well as passive
+        // events - instead of using polyfill, we can exclude IE totally.
+        if (!Globals.isMS) {
+            const opts = Object.defineProperty({}, 'passive', {
+                get: function () {
+                    supportsPassive = true;
+                }
+            });
+            if (Globals.win.addEventListener && Globals.win.removeEventListener) {
+                Globals.win.addEventListener('testPassive', Globals.noop, opts);
+                Globals.win.removeEventListener('testPassive', Globals.noop, opts);
+            }
+        }
+        return supportsPassive;
+    }());
     /**
      * An array containing the current chart objects in the page. A chart's
      * position in the array is preserved throughout the page's lifetime. When
@@ -66,7 +62,13 @@ var H = {
      * @name Highcharts.charts
      * @type {Array<Highcharts.Chart|undefined>}
      */
-    charts: [],
+    Globals.charts = [];
+    /**
+     * A shared registry between all bundles to keep track of applied
+     * compositions.
+     * @private
+     */
+    Globals.composed = [];
     /**
      * A hook for defining additional date format specifiers. New
      * specifiers are defined as key-value pairs by using the
@@ -78,8 +80,45 @@ var H = {
      *         Adding support for week number
      *
      * @name Highcharts.dateFormats
-     * @type {Highcharts.Dictionary<Highcharts.TimeFormatCallbackFunction>}
+     * @type {Record<string, Highcharts.TimeFormatCallbackFunction>}
      */
-    dateFormats: {}
-};
-export default H;
+    Globals.dateFormats = {};
+    /**
+     * @private
+     * @deprecated
+     * @todo Use only `Core/Series/SeriesRegistry.seriesTypes`
+     */
+    Globals.seriesTypes = {};
+    /**
+     * @private
+     */
+    Globals.symbolSizes = {};
+    /* *
+     *
+     *  Properties
+     *
+     * */
+    // eslint-disable-next-line prefer-const
+    Globals.chartCount = 0;
+})(Globals || (Globals = {}));
+/* *
+ *
+ *  Default Export
+ *
+ * */
+export default Globals;
+/* *
+ *
+ *  API Declarations
+ *
+ * */
+/**
+ * Theme options that should get applied to the chart. In module mode it
+ * might not be possible to change this property because of read-only
+ * restrictions, instead use {@link Highcharts.setOptions}.
+ *
+ * @deprecated
+ * @name Highcharts.theme
+ * @type {Highcharts.Options}
+ */
+(''); // Keeps doclets above in JS file

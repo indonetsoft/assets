@@ -1,34 +1,321 @@
 /* *
  *
- *  (c) 2010-2020 Torstein Honsi
+ *  (c) 2010-2024 Torstein Honsi
  *
  *  License: www.highcharts.com/license
  *
  *  !!!!!!! SOURCE GETS TRANSPILED BY TYPESCRIPT. EDIT TS FILE ONLY. !!!!!!!
  *
  * */
-import Axis from '../../Core/Axis/Axis.js';
-import BaseSeries from '../../Core/Series/Series.js';
+'use strict';
+import BubbleLegendComposition from './BubbleLegendComposition.js';
+import BubblePoint from './BubblePoint.js';
 import Color from '../../Core/Color/Color.js';
-var color = Color.parse;
+const { parse: color } = Color;
 import H from '../../Core/Globals.js';
-var noop = H.noop;
-import Point from '../../Core/Series/Point.js';
+const { composed, noop } = H;
+import SeriesRegistry from '../../Core/Series/SeriesRegistry.js';
+const { series: Series, seriesTypes: { column: { prototype: columnProto }, scatter: ScatterSeries } } = SeriesRegistry;
 import U from '../../Core/Utilities.js';
-var arrayMax = U.arrayMax, arrayMin = U.arrayMin, clamp = U.clamp, extend = U.extend, isNumber = U.isNumber, pick = U.pick, pInt = U.pInt;
-import '../../Series/LineSeries.js';
-import '../../Series/ScatterSeries.js';
-import './BubbleLegend.js';
-var Series = H.Series, seriesTypes = BaseSeries.seriesTypes;
+const { addEvent, arrayMax, arrayMin, clamp, extend, isNumber, merge, pick, pushUnique } = U;
+/* *
+ *
+ *  Functions
+ *
+ * */
 /**
- * @typedef {"area"|"width"} Highcharts.BubbleSizeByValue
+ * Add logic to pad each axis with the amount of pixels necessary to avoid the
+ * bubbles to overflow.
  */
-''; // detach doclets above
+function onAxisFoundExtremes() {
+    const axisLength = this.len, { coll, isXAxis, min } = this, dataKey = isXAxis ? 'xData' : 'yData', range = (this.max || 0) - (min || 0);
+    let pxMin = 0, pxMax = axisLength, transA = axisLength / range, hasActiveSeries;
+    if (coll !== 'xAxis' && coll !== 'yAxis') {
+        return;
+    }
+    // Handle padding on the second pass, or on redraw
+    this.series.forEach((series) => {
+        if (series.bubblePadding && series.reserveSpace()) {
+            // Correction for #1673
+            this.allowZoomOutside = true;
+            hasActiveSeries = true;
+            const data = series[dataKey];
+            if (isXAxis) {
+                (series.onPoint || series).getRadii(0, 0, series);
+                if (series.onPoint) {
+                    series.radii = series.onPoint.radii;
+                }
+            }
+            if (range > 0) {
+                let i = data.length;
+                while (i--) {
+                    if (isNumber(data[i]) &&
+                        this.dataMin <= data[i] &&
+                        data[i] <= this.max) {
+                        const radius = series.radii && series.radii[i] || 0;
+                        pxMin = Math.min(((data[i] - min) * transA) - radius, pxMin);
+                        pxMax = Math.max(((data[i] - min) * transA) + radius, pxMax);
+                    }
+                }
+            }
+        }
+    });
+    // Apply the padding to the min and max properties
+    if (hasActiveSeries && range > 0 && !this.logarithmic) {
+        pxMax -= axisLength;
+        transA *= (axisLength +
+            Math.max(0, pxMin) - // #8901
+            Math.min(pxMax, axisLength)) / axisLength;
+        [
+            ['min', 'userMin', pxMin],
+            ['max', 'userMax', pxMax]
+        ].forEach((keys) => {
+            if (typeof pick(this.options[keys[0]], this[keys[1]]) === 'undefined') {
+                this[keys[0]] += keys[2] / transA;
+            }
+        });
+    }
+}
+/* *
+ *
+ *  Class
+ *
+ * */
+class BubbleSeries extends ScatterSeries {
+    /* *
+     *
+     *  Static Functions
+     *
+     * */
+    static compose(AxisClass, ChartClass, LegendClass, SeriesClass) {
+        BubbleLegendComposition.compose(ChartClass, LegendClass, SeriesClass);
+        if (pushUnique(composed, 'Series.Bubble')) {
+            addEvent(AxisClass, 'foundExtremes', onAxisFoundExtremes);
+        }
+    }
+    /* *
+     *
+     *  Functions
+     *
+     * */
+    /**
+     * Perform animation on the bubbles
+     * @private
+     */
+    animate(init) {
+        if (!init &&
+            this.points.length < this.options.animationLimit // #8099
+        ) {
+            this.points.forEach(function (point) {
+                const { graphic, plotX = 0, plotY = 0 } = point;
+                if (graphic && graphic.width) { // URL symbols don't have width
+                    // Start values
+                    if (!this.hasRendered) {
+                        graphic.attr({
+                            x: plotX,
+                            y: plotY,
+                            width: 1,
+                            height: 1
+                        });
+                    }
+                    graphic.animate(this.markerAttribs(point), this.options.animation);
+                }
+            }, this);
+        }
+    }
+    /**
+     * Get the radius for each point based on the minSize, maxSize and each
+     * point's Z value. This must be done prior to Series.translate because
+     * the axis needs to add padding in accordance with the point sizes.
+     * @private
+     */
+    getRadii() {
+        const zData = this.zData, yData = this.yData, radii = [];
+        let len, i, value, zExtremes = this.chart.bubbleZExtremes;
+        const { minPxSize, maxPxSize } = this.getPxExtremes();
+        // Get the collective Z extremes of all bubblish series. The chart-level
+        // `bubbleZExtremes` are only computed once, and reset on `updatedData`
+        // in any member series.
+        if (!zExtremes) {
+            let zMin = Number.MAX_VALUE;
+            let zMax = -Number.MAX_VALUE;
+            let valid;
+            this.chart.series.forEach((otherSeries) => {
+                if (otherSeries.bubblePadding && otherSeries.reserveSpace()) {
+                    const zExtremes = (otherSeries.onPoint || otherSeries).getZExtremes();
+                    if (zExtremes) {
+                        // Changed '||' to 'pick' because min or max can be 0.
+                        // #17280
+                        zMin = Math.min(pick(zMin, zExtremes.zMin), zExtremes.zMin);
+                        zMax = Math.max(pick(zMax, zExtremes.zMax), zExtremes.zMax);
+                        valid = true;
+                    }
+                }
+            });
+            if (valid) {
+                zExtremes = { zMin, zMax };
+                this.chart.bubbleZExtremes = zExtremes;
+            }
+            else {
+                zExtremes = { zMin: 0, zMax: 0 };
+            }
+        }
+        // Set the shape type and arguments to be picked up in drawPoints
+        for (i = 0, len = zData.length; i < len; i++) {
+            value = zData[i];
+            // Separate method to get individual radius for bubbleLegend
+            radii.push(this.getRadius(zExtremes.zMin, zExtremes.zMax, minPxSize, maxPxSize, value, yData && yData[i]));
+        }
+        this.radii = radii;
+    }
+    /**
+     * Get the individual radius for one point.
+     * @private
+     */
+    getRadius(zMin, zMax, minSize, maxSize, value, yValue) {
+        const options = this.options, sizeByArea = options.sizeBy !== 'width', zThreshold = options.zThreshold;
+        let zRange = zMax - zMin, pos = 0.5;
+        // #8608 - bubble should be visible when z is undefined
+        if (yValue === null || value === null) {
+            return null;
+        }
+        if (isNumber(value)) {
+            // When sizing by threshold, the absolute value of z determines
+            // the size of the bubble.
+            if (options.sizeByAbsoluteValue) {
+                value = Math.abs(value - zThreshold);
+                zMax = zRange = Math.max(zMax - zThreshold, Math.abs(zMin - zThreshold));
+                zMin = 0;
+            }
+            // Issue #4419 - if value is less than zMin, push a radius that's
+            // always smaller than the minimum size
+            if (value < zMin) {
+                return minSize / 2 - 1;
+            }
+            // Relative size, a number between 0 and 1
+            if (zRange > 0) {
+                pos = (value - zMin) / zRange;
+            }
+        }
+        if (sizeByArea && pos >= 0) {
+            pos = Math.sqrt(pos);
+        }
+        return Math.ceil(minSize + pos * (maxSize - minSize)) / 2;
+    }
+    /**
+     * Define hasData function for non-cartesian series.
+     * Returns true if the series has points at all.
+     * @private
+     */
+    hasData() {
+        return !!this.processedXData.length; // != 0
+    }
+    /**
+     * @private
+     */
+    markerAttribs(point, state) {
+        const attr = super.markerAttribs(point, state), { height = 0, width = 0 } = attr;
+        // Bubble needs a specific `markerAttribs` override because the markers
+        // are rendered into the potentially inverted `series.group`. Unlike
+        // regular markers, which are rendered into the `markerGroup` (#21125).
+        return this.chart.inverted ? extend(attr, {
+            x: (point.plotX || 0) - width / 2,
+            y: (point.plotY || 0) - height / 2
+        }) : attr;
+    }
+    /**
+     * @private
+     */
+    pointAttribs(point, state) {
+        const markerOptions = this.options.marker, fillOpacity = markerOptions.fillOpacity, attr = Series.prototype.pointAttribs.call(this, point, state);
+        if (fillOpacity !== 1) {
+            attr.fill = color(attr.fill)
+                .setOpacity(fillOpacity)
+                .get('rgba');
+        }
+        return attr;
+    }
+    /**
+     * Extend the base translate method to handle bubble size
+     * @private
+     */
+    translate() {
+        // Run the parent method
+        super.translate.call(this);
+        this.getRadii();
+        this.translateBubble();
+    }
+    translateBubble() {
+        const { data, options, radii } = this, { minPxSize } = this.getPxExtremes();
+        // Set the shape type and arguments to be picked up in drawPoints
+        let i = data.length;
+        while (i--) {
+            const point = data[i], radius = radii ? radii[i] : 0; // #1737
+            // Negative points means negative z values (#9728)
+            if (this.zoneAxis === 'z') {
+                point.negative = (point.z || 0) < (options.zThreshold || 0);
+            }
+            if (isNumber(radius) && radius >= minPxSize / 2) {
+                // Shape arguments
+                point.marker = extend(point.marker, {
+                    radius,
+                    width: 2 * radius,
+                    height: 2 * radius
+                });
+                // Alignment box for the data label
+                point.dlBox = {
+                    x: point.plotX - radius,
+                    y: point.plotY - radius,
+                    width: 2 * radius,
+                    height: 2 * radius
+                };
+            }
+            else { // Below zThreshold
+                // #1691
+                point.shapeArgs = point.plotY = point.dlBox = void 0;
+                point.isInside = false; // #17281
+            }
+        }
+    }
+    getPxExtremes() {
+        const smallestSize = Math.min(this.chart.plotWidth, this.chart.plotHeight);
+        const getPxSize = (length) => {
+            let isPercent;
+            if (typeof length === 'string') {
+                isPercent = /%$/.test(length);
+                length = parseInt(length, 10);
+            }
+            return isPercent ? smallestSize * length / 100 : length;
+        };
+        const minPxSize = getPxSize(pick(this.options.minSize, 8));
+        // Prioritize min size if conflict to make sure bubbles are
+        // always visible. #5873
+        const maxPxSize = Math.max(getPxSize(pick(this.options.maxSize, '20%')), minPxSize);
+        return { minPxSize, maxPxSize };
+    }
+    getZExtremes() {
+        const options = this.options, zData = (this.zData || []).filter(isNumber);
+        if (zData.length) {
+            const zMin = pick(options.zMin, clamp(arrayMin(zData), options.displayNegative === false ?
+                (options.zThreshold || 0) :
+                -Number.MAX_VALUE, Number.MAX_VALUE));
+            const zMax = pick(options.zMax, arrayMax(zData));
+            if (isNumber(zMin) && isNumber(zMax)) {
+                return { zMin, zMax };
+            }
+        }
+    }
+}
+/* *
+ *
+ *  Static Properties
+ *
+ * */
 /**
- * A bubble series is a three dimensional series type where each point renders
- * an X, Y and Z value. Each points is drawn as a bubble where the position
- * along the X and Y axes mark the X and Y values, and the size of the bubble
- * relates to the Z value.
+ * A bubble series is a three dimensional series type where each point
+ * renders an X, Y and Z value. Each points is drawn as a bubble where the
+ * position along the X and Y axes mark the X and Y values, and the size of
+ * the bubble relates to the Z value.
  *
  * @sample {highcharts} highcharts/demo/bubble/
  *         Bubble chart
@@ -39,18 +326,20 @@ var Series = H.Series, seriesTypes = BaseSeries.seriesTypes;
  * @requires     highcharts-more
  * @optionparent plotOptions.bubble
  */
-BaseSeries.seriesType('bubble', 'scatter', {
+BubbleSeries.defaultOptions = merge(ScatterSeries.defaultOptions, {
     dataLabels: {
         formatter: function () {
-            return this.point.z;
+            const { numberFormatter } = this.series.chart;
+            const { z } = this.point;
+            return isNumber(z) ? numberFormatter(z, -1) : '';
         },
         inside: true,
         verticalAlign: 'middle'
     },
     /**
      * If there are more points in the series than the `animationLimit`, the
-     * animation won't run. Animation affects overall performance and doesn't
-     * work well with heavy data series.
+     * animation won't run. Animation affects overall performance and
+     * doesn't work well with heavy data series.
      *
      * @since 6.1.0
      */
@@ -81,8 +370,8 @@ BaseSeries.seriesType('bubble', 'scatter', {
          */
         fillOpacity: 0.5,
         /**
-         * In bubble charts, the radius is overridden and determined based on
-         * the point's data value.
+         * In bubble charts, the radius is overridden and determined based
+         * on the point's data value.
          *
          * @ignore-option
          */
@@ -97,17 +386,18 @@ BaseSeries.seriesType('bubble', 'scatter', {
          * "circle", "square", "diamond", "triangle" and "triangle-down".
          *
          * Additionally, the URL to a graphic can be given on the form
-         * `url(graphic.png)`. Note that for the image to be applied to exported
-         * charts, its URL needs to be accessible by the export server.
+         * `url(graphic.png)`. Note that for the image to be applied to
+         * exported charts, its URL needs to be accessible by the export
+         * server.
          *
          * Custom callbacks for symbol path generation can also be added to
          * `Highcharts.SVGRenderer.prototype.symbols`. The callback is then
          * used by its method name, as shown in the demo.
          *
-         * @sample     {highcharts} highcharts/plotoptions/bubble-symbol/
-         *             Bubble chart with various symbols
-         * @sample     {highcharts} highcharts/plotoptions/series-marker-symbol/
-         *             General chart with predefined, graphic and custom markers
+         * @sample {highcharts} highcharts/plotoptions/bubble-symbol/
+         *         Bubble chart with various symbols
+         * @sample {highcharts} highcharts/plotoptions/series-marker-symbol/
+         *         General chart with predefined, graphic and custom markers
          *
          * @type  {Highcharts.SymbolKeyValue|string}
          * @since 5.0.11
@@ -144,7 +434,8 @@ BaseSeries.seriesType('bubble', 'scatter', {
     maxSize: '20%',
     /**
      * When a point's Z value is below the
-     * [zThreshold](#plotOptions.bubble.zThreshold) setting, this color is used.
+     * [zThreshold](#plotOptions.bubble.zThreshold)
+     * setting, this color is used.
      *
      * @sample {highcharts} highcharts/plotoptions/bubble-negative/
      *         Negative bubbles
@@ -189,8 +480,9 @@ BaseSeries.seriesType('bubble', 'scatter', {
      * unless the data actually crosses the plane.
      *
      * For example, if `softThreshold` is `false`, a series of 0, 1, 2,
-     * 3 will make the Y axis show negative values according to the `minPadding`
-     * option. If `softThreshold` is `true`, the Y axis starts at 0.
+     * 3 will make the Y axis show negative values according to the
+     * `minPadding` option. If `softThreshold` is `true`, the Y axis starts
+     * at 0.
      *
      * @since   4.1.9
      * @product highcharts
@@ -253,232 +545,48 @@ BaseSeries.seriesType('bubble', 'scatter', {
      */
     zThreshold: 0,
     zoneAxis: 'z'
-    // Prototype members
-}, {
+});
+extend(BubbleSeries.prototype, {
+    alignDataLabel: columnProto.alignDataLabel,
+    applyZones: noop,
+    bubblePadding: true,
+    isBubble: true,
     pointArrayMap: ['y', 'z'],
+    pointClass: BubblePoint,
     parallelArrays: ['x', 'y', 'z'],
     trackerGroups: ['group', 'dataLabelsGroup'],
     specialGroup: 'group',
-    bubblePadding: true,
-    zoneAxis: 'z',
-    directTouch: true,
-    isBubble: true,
-    /* eslint-disable valid-jsdoc */
-    /**
-     * @private
-     */
-    pointAttribs: function (point, state) {
-        var markerOptions = this.options.marker, fillOpacity = markerOptions.fillOpacity, attr = Series.prototype.pointAttribs.call(this, point, state);
-        if (fillOpacity !== 1) {
-            attr.fill = color(attr.fill)
-                .setOpacity(fillOpacity)
-                .get('rgba');
-        }
-        return attr;
-    },
-    /**
-     * Get the radius for each point based on the minSize, maxSize and each
-     * point's Z value. This must be done prior to Series.translate because
-     * the axis needs to add padding in accordance with the point sizes.
-     * @private
-     */
-    getRadii: function (zMin, zMax, series) {
-        var len, i, zData = this.zData, yData = this.yData, minSize = series.minPxSize, maxSize = series.maxPxSize, radii = [], value;
-        // Set the shape type and arguments to be picked up in drawPoints
-        for (i = 0, len = zData.length; i < len; i++) {
-            value = zData[i];
-            // Separate method to get individual radius for bubbleLegend
-            radii.push(this.getRadius(zMin, zMax, minSize, maxSize, value, yData[i]));
-        }
-        this.radii = radii;
-    },
-    /**
-     * Get the individual radius for one point.
-     * @private
-     */
-    getRadius: function (zMin, zMax, minSize, maxSize, value, yValue) {
-        var options = this.options, sizeByArea = options.sizeBy !== 'width', zThreshold = options.zThreshold, zRange = zMax - zMin, pos = 0.5;
-        // #8608 - bubble should be visible when z is undefined
-        if (yValue === null || value === null) {
-            return null;
-        }
-        if (isNumber(value)) {
-            // When sizing by threshold, the absolute value of z determines
-            // the size of the bubble.
-            if (options.sizeByAbsoluteValue) {
-                value = Math.abs(value - zThreshold);
-                zMax = zRange = Math.max(zMax - zThreshold, Math.abs(zMin - zThreshold));
-                zMin = 0;
-            }
-            // Issue #4419 - if value is less than zMin, push a radius that's
-            // always smaller than the minimum size
-            if (value < zMin) {
-                return minSize / 2 - 1;
-            }
-            // Relative size, a number between 0 and 1
-            if (zRange > 0) {
-                pos = (value - zMin) / zRange;
-            }
-        }
-        if (sizeByArea && pos >= 0) {
-            pos = Math.sqrt(pos);
-        }
-        return Math.ceil(minSize + pos * (maxSize - minSize)) / 2;
-    },
-    /**
-     * Perform animation on the bubbles
-     * @private
-     */
-    animate: function (init) {
-        if (!init &&
-            this.points.length < this.options.animationLimit // #8099
-        ) {
-            this.points.forEach(function (point) {
-                var graphic = point.graphic;
-                if (graphic && graphic.width) { // URL symbols don't have width
-                    // Start values
-                    if (!this.hasRendered) {
-                        graphic.attr({
-                            x: point.plotX,
-                            y: point.plotY,
-                            width: 1,
-                            height: 1
-                        });
-                    }
-                    // Run animation
-                    graphic.animate(this.markerAttribs(point), this.options.animation);
-                }
-            }, this);
-        }
-    },
-    /**
-     * Define hasData function for non-cartesian series.
-     * Returns true if the series has points at all.
-     * @private
-     */
-    hasData: function () {
-        return !!this.processedXData.length; // != 0
-    },
-    /**
-     * Extend the base translate method to handle bubble size
-     * @private
-     */
-    translate: function () {
-        var i, data = this.data, point, radius, radii = this.radii;
-        // Run the parent method
-        seriesTypes.scatter.prototype.translate.call(this);
-        // Set the shape type and arguments to be picked up in drawPoints
-        i = data.length;
-        while (i--) {
-            point = data[i];
-            radius = radii ? radii[i] : 0; // #1737
-            if (isNumber(radius) && radius >= this.minPxSize / 2) {
-                // Shape arguments
-                point.marker = extend(point.marker, {
-                    radius: radius,
-                    width: 2 * radius,
-                    height: 2 * radius
-                });
-                // Alignment box for the data label
-                point.dlBox = {
-                    x: point.plotX - radius,
-                    y: point.plotY - radius,
-                    width: 2 * radius,
-                    height: 2 * radius
-                };
-            }
-            else { // below zThreshold
-                // #1691
-                point.shapeArgs = point.plotY = point.dlBox = void 0;
-            }
-        }
-    },
-    alignDataLabel: seriesTypes.column.prototype.alignDataLabel,
-    buildKDTree: noop,
-    applyZones: noop
-    // Point class
-}, {
-    /**
-     * @private
-     */
-    haloPath: function (size) {
-        return Point.prototype.haloPath.call(this, 
-        // #6067
-        size === 0 ? 0 : (this.marker ? this.marker.radius || 0 : 0) + size);
-    },
-    ttBelow: false
+    zoneAxis: 'z'
 });
-// Add logic to pad each axis with the amount of pixels necessary to avoid the
-// bubbles to overflow.
-Axis.prototype.beforePadding = function () {
-    var axis = this, axisLength = this.len, chart = this.chart, pxMin = 0, pxMax = axisLength, isXAxis = this.isXAxis, dataKey = isXAxis ? 'xData' : 'yData', min = this.min, extremes = {}, smallestSize = Math.min(chart.plotWidth, chart.plotHeight), zMin = Number.MAX_VALUE, zMax = -Number.MAX_VALUE, range = this.max - min, transA = axisLength / range, activeSeries = [];
-    // Handle padding on the second pass, or on redraw
-    this.series.forEach(function (series) {
-        var seriesOptions = series.options, zData;
-        if (series.bubblePadding &&
-            (series.visible || !chart.options.chart.ignoreHiddenSeries)) {
-            // Correction for #1673
-            axis.allowZoomOutside = true;
-            // Cache it
-            activeSeries.push(series);
-            if (isXAxis) { // because X axis is evaluated first
-                // For each series, translate the size extremes to pixel values
-                ['minSize', 'maxSize'].forEach(function (prop) {
-                    var length = seriesOptions[prop], isPercent = /%$/.test(length);
-                    length = pInt(length);
-                    extremes[prop] = isPercent ?
-                        smallestSize * length / 100 :
-                        length;
-                });
-                series.minPxSize = extremes.minSize;
-                // Prioritize min size if conflict to make sure bubbles are
-                // always visible. #5873
-                series.maxPxSize = Math.max(extremes.maxSize, extremes.minSize);
-                // Find the min and max Z
-                zData = series.zData.filter(isNumber);
-                if (zData.length) { // #1735
-                    zMin = pick(seriesOptions.zMin, clamp(arrayMin(zData), seriesOptions.displayNegative === false ?
-                        seriesOptions.zThreshold :
-                        -Number.MAX_VALUE, zMin));
-                    zMax = pick(seriesOptions.zMax, Math.max(zMax, arrayMax(zData)));
-                }
-            }
-        }
-    });
-    activeSeries.forEach(function (series) {
-        var data = series[dataKey], i = data.length, radius;
-        if (isXAxis) {
-            series.getRadii(zMin, zMax, series);
-        }
-        if (range > 0) {
-            while (i--) {
-                if (isNumber(data[i]) &&
-                    axis.dataMin <= data[i] &&
-                    data[i] <= axis.max) {
-                    radius = series.radii ? series.radii[i] : 0;
-                    pxMin = Math.min(((data[i] - min) * transA) - radius, pxMin);
-                    pxMax = Math.max(((data[i] - min) * transA) + radius, pxMax);
-                }
-            }
-        }
-    });
-    // Apply the padding to the min and max properties
-    if (activeSeries.length && range > 0 && !this.logarithmic) {
-        pxMax -= axisLength;
-        transA *= (axisLength +
-            Math.max(0, pxMin) - // #8901
-            Math.min(pxMax, axisLength)) / axisLength;
-        [
-            ['min', 'userMin', pxMin],
-            ['max', 'userMax', pxMax]
-        ].forEach(function (keys) {
-            if (typeof pick(axis.options[keys[0]], axis[keys[1]]) === 'undefined') {
-                axis[keys[0]] += keys[2] / transA;
-            }
-        });
-    }
-    /* eslint-enable valid-jsdoc */
-};
+// On updated data in any series, delete the chart-level Z extremes cache
+addEvent(BubbleSeries, 'updatedData', (e) => {
+    delete e.target.chart.bubbleZExtremes;
+});
+// After removing series, delete the chart-level Z extremes cache, #17502.
+addEvent(BubbleSeries, 'remove', (e) => {
+    delete e.target.chart.bubbleZExtremes;
+});
+SeriesRegistry.registerSeriesType('bubble', BubbleSeries);
+/* *
+ *
+ *  Default Export
+ *
+ * */
+export default BubbleSeries;
+/* *
+ *
+ *  API Declarations
+ *
+ * */
+/**
+ * @typedef {"area"|"width"} Highcharts.BubbleSizeByValue
+ */
+''; // Detach doclets above
+/* *
+ *
+ *  API Options
+ *
+ * */
 /**
  * A `bubble` series. If the [type](#series.bubble.type) option is
  * not specified, it is inherited from [chart.type](#chart.type).
@@ -562,4 +670,4 @@ Axis.prototype.beforePadding = function () {
  * @excluding enabled, enabledThreshold, height, radius, width
  * @apioption series.bubble.marker
  */
-''; // adds doclets above to transpiled file
+''; // Adds doclets above to transpiled file

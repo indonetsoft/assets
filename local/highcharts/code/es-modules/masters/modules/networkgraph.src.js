@@ -1,13 +1,17 @@
 /**
- * @license Highcharts JS v8.2.2 (2020-10-22)
+ * @license Highcharts JS v11.4.3 (2024-05-22)
  * @module highcharts/modules/networkgraph
  * @requires highcharts
  *
  * Force directed graph module
  *
- * (c) 2010-2019 Torstein Honsi
+ * (c) 2010-2024 Torstein Honsi
  *
  * License: www.highcharts.com/license
  */
 'use strict';
-import '../../Series/Networkgraph/Networkgraph.js';
+import Highcharts from '../../Core/Globals.js';
+import NetworkgraphSeries from '../../Series/Networkgraph/NetworkgraphSeries.js';
+const G = Highcharts;
+NetworkgraphSeries.compose(G.Chart);
+export default Highcharts;

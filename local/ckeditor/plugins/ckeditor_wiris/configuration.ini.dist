@@ -160,6 +160,14 @@
 
 #wirisexternalplugin = false
 
+######################
+# Api configurations #
+######################
+
+## Specify the additional headers and values. Separated by coma.
+
+#wiriscustomheaders = 
+
 ########################
 # Performance settings #
 ########################

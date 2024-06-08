@@ -584,6 +584,7 @@ $.jgrid.extend({
 			//startColumnName,
 			numberOfColumns,
 			titleText,
+                        toolTip,
 			cVisibleColumns,
 			className,
 			colModel = ts.p.colModel,
@@ -631,8 +632,9 @@ $.jgrid.extend({
 				if (iCol >= 0) {
 					cghi = ts.p.colSpanHeader[iCol];
 					numberOfColumns = cghi.numberOfColumns;
-					titleText = cghi.titleText;
+					titleText = cghi.titleText || "";
 					className = cghi.className || "";
+					toolTip = cghi.toolTip || "";
 					// caclulate the number of visible columns from the next numberOfColumns columns
 					for (cVisibleColumns = 0, iCol = 0; iCol < numberOfColumns && (i + iCol < cml); iCol++) {
 						if (!colModel[i + iCol].hidden) {
@@ -647,13 +649,14 @@ $.jgrid.extend({
 								$("tr",$thead).eq(k+1).find("th").eq(i).attr("colspan", String(cVisibleColumns));
 							}
 						}
-
 					}
 					if (titleText) {
-						var fl = $th.find("div.ui-th-div")[0].firstChild;
-						cghi.savedLabel = fl.data;
-						fl.data = titleText;
-						if (ts.p.headertitles) {
+						var fl = $th.find("div.ui-th-div")[0];
+						cghi.savedLabel = fl.innerHTML;
+						fl.innerHTML = titleText;
+						if(typeof toolTip === "string" && toolTip !== "") {
+							$th.attr("title", toolTip);
+						} else if (ts.p.headertitles) {
 							$th.attr("title", titleText);
 						}
 					}
@@ -710,8 +713,8 @@ $.jgrid.extend({
 						}
 						$(itm).attr("colspan","").removeClass( itm.className );
 						if($(n).hasClass('ui-jqgrid-labels')) {
-							fl = itm.find("div.ui-th-div")[0].firstChild;
-							fl.data = clitem.savedLabel;
+							fl = itm.find("div.ui-th-div")[0];
+							fl.innerHTML = clitem.savedLabel;
 						}
 						for(k=1;k<clitem.numberOfColumns;k++) {
 							$("th", n).eq(cellInd+k).show();
@@ -737,6 +740,7 @@ $.jgrid.extend({
 			//startColumnName,
 			numberOfColumns,
 			titleText,
+			toolTip,
 			cVisibleColumns,
 			className,
 			colModel = ts.p.colModel,
@@ -787,6 +791,7 @@ $.jgrid.extend({
 					cghi = o.groupHeaders[iCol];
 					numberOfColumns = cghi.numberOfColumns;
 					titleText = cghi.titleText;
+					toolTip = cghi.toolTip || "";
 					className = cghi.className || "";
 					// caclulate the number of visible columns from the next numberOfColumns columns
 					for (cVisibleColumns = 0, iCol = 0; iCol < numberOfColumns && (i + iCol < cml); iCol++) {
@@ -805,7 +810,9 @@ $.jgrid.extend({
 					if(cVisibleColumns > 0) {
 						$colHeader.attr("colspan", String(cVisibleColumns));
 					}
-					if (ts.p.headertitles) {
+					if(typeof toolTip === "string" && toolTip !== "") {
+						$colHeader.attr("title", toolTip);
+					} else if (ts.p.headertitles) {
 						$colHeader.attr("title", $colHeader.text());
 					}
 					// hide if not a visible cols

@@ -42,12 +42,13 @@ $.jgrid.extend({
 		return this.each(function (){
 			var $t = this, nm, tmp,cc, cm,
 			highlight = $(this).jqGrid('getStyleUI',$t.p.styleUI+'.common','highlight', true),
-			
+			disabled = $(this).jqGrid('getStyleUI',$t.p.styleUI+'.common','disabled', true),			
 			hover = !$t.p.ariaBody ? $(this).jqGrid('getStyleUI',$t.p.styleUI+'.common','hover', true) : "",
 			inpclass = $(this).jqGrid('getStyleUI',$t.p.styleUI+".celledit",'inputClass', true),
 			selclass = $(this).jqGrid('getStyleUI',$t.p.styleUI+".celledit",'selectClass', true);
 
 			if (!$t.grid || $t.p.cellEdit !== true) {return;}
+			if ( $($t.rows[iRow]).hasClass(disabled) ) {return;}
 			iCol = parseInt(iCol,10);
 			// select the row that can be used for other methods
 			$t.p.selrow = $t.rows[iRow].id;
@@ -89,7 +90,9 @@ $.jgrid.extend({
 				if($t.p.autoencode) { tmp = $.jgrid.htmlDecode(tmp); }
 				if (!cm.edittype) {cm.edittype = "text";}
 				$t.p.savedRow.push({id:iRow, ic:iCol, name:nm, v:tmp, rowId: $t.rows[iRow].id });
-				if(tmp === "&nbsp;" || tmp === "&#160;" || (tmp.length===1 && tmp.charCodeAt(0)===160) ) {tmp='';}
+				try {
+					if(tmp === "&nbsp;" || tmp === "&#160;" || (tmp.length===1 && tmp.charCodeAt(0)===160) ) {tmp='';}
+				} catch (etmp){}
 				if($.jgrid.isFunction($t.p.formatCell)) {
 					var tmp2 = $t.p.formatCell.call($t, $t.rows[iRow].id,nm,tmp,iRow,iCol);
 					if(tmp2 !== undefined ) {tmp = tmp2;}
@@ -124,14 +127,16 @@ $.jgrid.extend({
 					} //ESC
 					if (e.keyCode === 13 && e.altKey && this.nodeName === "TEXTAREA") {
 						this.value = this.value + "\r";
+						e.preventDefault();
 						return true;
 					}
 					if (e.keyCode === 13 && !e.shiftKey) {
+						e.preventDefault();
 						$($t).jqGrid("saveCell",iRow,iCol);
 						if(iRow < $t.rows.length-1 && excel) {
 							$($t).jqGrid('focusBodyCell', iRow + 1 , iCol);
 						} else {
-							setTimeout(function(){ $($t).jqGrid('focusBodyCell', iRow , iCol);},100);
+							//setTimeout(function(){ $($t).jqGrid('focusBodyCell', iRow , iCol);},100);
 						}
 						// Prevent default action
 						return false;
@@ -359,7 +364,7 @@ $.jgrid.extend({
 									url: $t.p.cellurl,
 									data :$.jgrid.isFunction($t.p.serializeCellData) ? $t.p.serializeCellData.call($t, postdata, nm) : postdata,
 									type: "POST",
-									complete: function (result, stat) {
+									success: function (anydata, stat, result) {
 										$($t).jqGrid("progressBar", {method:"hide", loadtype : $t.p.loadui });
 										$t.grid.hDiv.loading = false;
 										if (stat === 'success') {
@@ -461,7 +466,7 @@ $.jgrid.extend({
 									$($t).triggerHandler("jqGridAfterSaveCell", [$t.p.savedRow[fr].rowId, nm, v, iRow, iCol]);
 									if ($.jgrid.isFunction($t.p.afterSaveCell)) {
 										$t.p.afterSaveCell.call($t, $t.p.savedRow[fr].rowId, nm, v, iRow, iCol);
-						}
+									}
 									$t.p.savedRow.splice(0,1);
 									
 								}
@@ -592,7 +597,7 @@ $.jgrid.extend({
 			var selection = $("<div style='position:fixed;top:0px;width:1px;height:1px;' tabindex='0'><div tabindex='-1' style='width:1px;height:1px;' id='"+$t.p.knv+"'></div></div>"),
 			i, kdir;
 			function scrollGrid(iR, iC, tp){
-				if (tp.substr(0,1)==='v') {
+				if (tp.slice(0,1)==='v') {
 					var ch = $($t.grid.bDiv)[0].clientHeight,
 					st = $($t.grid.bDiv)[0].scrollTop,
 					nROT = $t.rows[iR].offsetTop+$t.rows[iR].clientHeight,
@@ -681,6 +686,7 @@ $.jgrid.extend({
 					break;
 					case 13:
 						if (parseInt($t.p.iCol,10)>=0 && parseInt($t.p.iRow,10)>=0) {
+							e.preventDefault();
 							$($t).jqGrid("editCell",$t.p.iRow,$t.p.iCol,true,e);
 						}
 					break;

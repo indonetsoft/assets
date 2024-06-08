@@ -1,5 +1,23 @@
 # Version History
 
+*7.0.5* (2024/04/26)
+* Fixed wrong focus on load when using default subtitles ([#2958](https://github.com/mediaelement/mediaelement/pull/2958))
+
+*7.0.4* (2024/04/25)
+* Fixed wrong focus on load when using default subtitles([#2957](https://github.com/mediaelement/mediaelement/pull/2957)) @Necxes
+* Improved performance by eliminating a test logic event ([#2954](https://github.com/mediaelement/mediaelement/pull/2954)) @westonruter
+
+*7.0.3* (2024/01/29)
+* HLS and MPEG-Dash renderer should now have working captions, when loaded initially.
+* Updated `demo/index.html` for easier debugging.
+
+*7.0.2* (2023/11/14)
+* Fixed an error that occurred with the iFrame players
+* Fixed a problem with the scaling of iFrames within their containers
+
+*7.0.1* (2023/10/31)
+* Fix state of caption toggle not visible
+
 *7.0.0* (2023/03/28)
 ## Removal of flash support
 * Flash support removed, see [Migration Guide](MIGRATION.md) for more information about Breaking Changes. 

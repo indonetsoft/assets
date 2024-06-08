@@ -1116,7 +1116,7 @@ function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { de
 
 var mejs = {};
 
-mejs.version = '7.0.0';
+mejs.version = '7.0.5';
 
 mejs.html5media = {
 	properties: ['volume', 'src', 'currentTime', 'muted', 'duration', 'paused', 'ended', 'buffered', 'error', 'networkState', 'readyState', 'seeking', 'seekable', 'currentSrc', 'preload', 'bufferedBytes', 'bufferedTime', 'initialTime', 'startOffsetTime', 'defaultPlaybackRate', 'playbackRate', 'played', 'autoplay', 'loop', 'controls'],
@@ -1565,8 +1565,8 @@ var DashNativeRenderer = {
 			}
 		};
 
-		var event = (0, _general.createEvent)('rendererready', node);
-		mediaElement.dispatchEvent(event);
+		var event = (0, _general.createEvent)('rendererready', node, false);
+		mediaElement.originalNode.dispatchEvent(event);
 
 		mediaElement.promises.push(NativeDash.load({
 			options: options.dash,
@@ -1854,8 +1854,8 @@ var HlsNativeRenderer = {
 			}
 		};
 
-		var event = (0, _general.createEvent)('rendererready', node);
-		mediaElement.dispatchEvent(event);
+		var event = (0, _general.createEvent)('rendererready', node, false);
+		mediaElement.originalNode.dispatchEvent(event);
 
 		mediaElement.promises.push(NativeHls.load({
 			options: options.hls,
@@ -2008,8 +2008,8 @@ var HtmlMediaElement = {
 			}
 		});
 
-		var event = (0, _general.createEvent)('rendererready', node);
-		mediaElement.dispatchEvent(event);
+		var event = (0, _general.createEvent)('rendererready', node, false);
+		mediaElement.originalNode.dispatchEvent(event);
 
 		return node;
 	}
@@ -2422,7 +2422,7 @@ var YouTubeIframeRenderer = {
 					var initEvents = ['rendererready', 'loadedmetadata', 'loadeddata', 'canplay'];
 
 					for (var _i4 = 0, _total4 = initEvents.length; _i4 < _total4; _i4++) {
-						var event = (0, _general.createEvent)(initEvents[_i4], youtube);
+						var event = (0, _general.createEvent)(initEvents[_i4], youtube, true);
 						mediaElement.dispatchEvent(event);
 					}
 				},
@@ -2594,24 +2594,7 @@ var IS_FIREFOX = exports.IS_FIREFOX = /firefox/i.test(UA);
 var IS_SAFARI = exports.IS_SAFARI = /safari/i.test(UA) && !IS_CHROME;
 var IS_STOCK_ANDROID = exports.IS_STOCK_ANDROID = /^mozilla\/\d+\.\d+\s\(linux;\su;/i.test(UA);
 var HAS_MSE = exports.HAS_MSE = 'MediaSource' in _window2.default;
-var SUPPORT_POINTER_EVENTS = exports.SUPPORT_POINTER_EVENTS = function () {
-	var element = _document2.default.createElement('x'),
-	    documentElement = _document2.default.documentElement,
-	    getComputedStyle = _window2.default.getComputedStyle;
-
-	if (!('pointerEvents' in element.style)) {
-		return false;
-	}
-
-	element.style.pointerEvents = 'auto';
-	element.style.pointerEvents = 'x';
-	documentElement.appendChild(element);
-	var supports = getComputedStyle && (getComputedStyle(element, '') || {}).pointerEvents === 'auto';
-	element.remove();
-	return !!supports;
-}();
-
-var SUPPORT_PASSIVE_EVENT = exports.SUPPORT_PASSIVE_EVENT = function () {
+var SUPPORT_POINTER_EVENTS = exports.SUPPORT_POINTER_EVENTS = true;var SUPPORT_PASSIVE_EVENT = exports.SUPPORT_PASSIVE_EVENT = function () {
 	var supportsPassive = false;
 	try {
 		var opts = Object.defineProperty({}, 'passive', {
@@ -3070,7 +3053,7 @@ function splitEvents(events, id) {
 	return ret;
 }
 
-function createEvent(eventName, target) {
+function createEvent(eventName, target, isIframe) {
 
 	if (typeof eventName !== 'string') {
 		throw new Error('Event name must be a string');
@@ -3078,7 +3061,8 @@ function createEvent(eventName, target) {
 
 	var eventFrags = eventName.match(/([a-z]+\.([a-z]+))/i),
 	    detail = {
-		target: target
+		target: target,
+		isIframe: isIframe
 	};
 
 	if (eventFrags !== null) {

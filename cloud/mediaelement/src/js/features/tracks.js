@@ -146,13 +146,13 @@ Object.assign(MediaElementPlayer.prototype, {
 
     // if only one language then just make the button a toggle
     if (t.options.toggleCaptionsButtonWhenOnlyOne && subtitles.length === 1) {
-      player.captionsButton.addEventListener('click', (e) => {
+      player.captionsButton.classList.add(`${t.options.classPrefix}captions-button-toggle`);
+      player.captionsButton.addEventListener('click', () => {
         let trackId = 'none';
         if (player.selectedTrack === null) {
           trackId = player.getSubtitles()[0].trackId;
         }
-        const keyboard = e.keyCode || e.which;
-        player.setTrack(trackId, (typeof keyboard !== 'undefined'));
+        player.setTrack(trackId);
       });
     } else {
       const
@@ -180,9 +180,8 @@ Object.assign(MediaElementPlayer.prototype, {
           // value is trackId, same as the actual id, and we're using it here
           // because the "none" checkbox doesn't have a trackId
           // to use, but we want to know when "none" is clicked
-          const keyboard = e.keyCode || e.which;
           if (!e.target.disabled) {
-            player.setTrack(this.value, (typeof keyboard !== 'undefined'));
+            player.setTrack(this.value);
           }
         });
       }
@@ -333,7 +332,7 @@ Object.assign(MediaElementPlayer.prototype, {
    */
   handleCaptionsLoaded(target) {
     const
-      textTracks = this.domNode.textTracks,
+      textTracks = this.node.textTracks,
       playerTrack = this.getTrackById(target.getAttribute('id'));
 
     // Set default cue line
@@ -435,9 +434,8 @@ Object.assign(MediaElementPlayer.prototype, {
   /**
    *
    * @param {String} trackId, or "none" to disable captions
-   * @param {Boolean} setByKeyboard
    */
-  setTrack (trackId, setByKeyboard) {
+  setTrack (trackId) {
     const
       t = this,
       radios = t.captionsButton.querySelectorAll('input[type="radio"]'),
@@ -477,22 +475,16 @@ Object.assign(MediaElementPlayer.prototype, {
     const event = createEvent('captionschange', t.media);
     event.detail.caption = t.selectedTrack;
     t.media.dispatchEvent(event);
-
-    if (!setByKeyboard) {
-      setTimeout(function() {
-        t.getElement(t.container).focus();
-      }, 500);
-    }
   },
 
   /**
    * Set mode for all tracks to 'hidden' (causes player to load them).
    */
   hideAllTracks() {
-    if (this.domNode.textTracks) {
+    if (this.node.textTracks) {
       // parse through TextTrackList (not an Array)
-      for (let i = 0; i < this.domNode.textTracks.length; i++) {
-        this.domNode.textTracks[i].mode = 'hidden';
+      for (let i = 0; i < this.node.textTracks.length; i++) {
+        this.node.textTracks[i].mode = 'hidden';
       }
     }
   },
@@ -501,14 +493,18 @@ Object.assign(MediaElementPlayer.prototype, {
    * Hide all subtitles/captions.
    */
   deactivateVideoTracks() {
-    if (this.domNode.textTracks) {
+    if (this.node.textTracks) {
       // parse through TextTrackList (not an Array)
-      for (let i = 0; i < this.domNode.textTracks.length; i++) {
-        const track = this.domNode.textTracks[i];
+      for (let i = 0; i < this.node.textTracks.length; i++) {
+        const track = this.node.textTracks[i];
         if (track.kind === 'subtitles' || track.kind === 'captions') {
           track.mode = 'hidden';
         }
       }
+    }
+    if (this.options.toggleCaptionsButtonWhenOnlyOne && this.getSubtitles().length === 1) {
+      // deactivate captions toggle button
+      this.captionsButton.classList.remove(`${this.options.classPrefix}captions-button-toggle-on`);
     }
   },
 
@@ -518,12 +514,16 @@ Object.assign(MediaElementPlayer.prototype, {
    */
   activateVideoTrack(srclang) {
     // parse through TextTrackList (not an Array)
-    for (let i = 0; i < this.domNode.textTracks.length; i++) {
-      const track = this.domNode.textTracks[i];
+    for (let i = 0; i < this.node.textTracks.length; i++) {
+      const track = this.node.textTracks[i];
       // For the 'subtitles-off' button, the first condition will never match so all will subtitles be turned off
       if (track.kind === 'subtitles' || track.kind === 'captions') {
         if (track.language === srclang) {
           track.mode = 'showing';
+          if (this.options.toggleCaptionsButtonWhenOnlyOne && this.getSubtitles().length === 1) {
+            // activate captions toggle button
+            this.captionsButton.classList.add(`${this.options.classPrefix}captions-button-toggle-on`);
+          }
         } else {
           track.mode = 'hidden';
         }
@@ -632,7 +632,7 @@ Object.assign(MediaElementPlayer.prototype, {
   drawChapters (chapterTrackId) {
     const
       t = this,
-      chapter = this.domNode.textTracks.getTrackById(chapterTrackId),
+      chapter = this.node.textTracks.getTrackById(chapterTrackId),
       numberOfChapters = chapter.cues.length
     ;
 

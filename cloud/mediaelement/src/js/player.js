@@ -245,6 +245,9 @@ class MediaElementPlayer {
 		t.mediaFiles = null;
 		t.trackFiles = null;
 
+		// We need to set the listener early, or it doesn't get called when a renderer is created on load.
+		t.media.addEventListener('rendererready', this.updateNode.bind(this))
+
 		// use native controls in iPad, iPhone, and Android
 		if ((IS_IPAD && t.options.iPadUseNativeControls) || (IS_IPHONE && t.options.iPhoneUseNativeControls)) {
 
@@ -401,8 +404,6 @@ class MediaElementPlayer {
 			const event = createEvent('controlsshown', t.getElement(t.container));
 			t.getElement(t.container).dispatchEvent(event);
 		}
-
-		t.media.addEventListener('rendererready', this.updateNode.bind(this))
 	}
 
 	/**
@@ -415,8 +416,23 @@ class MediaElementPlayer {
 	 * @param event event with renderer node as detail when renderer was created
 	 */
 	updateNode(event) {
-		this.domNode = event.detail.target;
-		this.node = event.detail.target;
+		let node, iframeId;
+		const mediaElement = event.detail.target.hasOwnProperty('mediaElement') ? event.detail.target.mediaElement : event.detail.target;
+		const originalNode = mediaElement.originalNode;
+
+		if (event.detail.isIframe) {
+			iframeId = mediaElement.renderer.id;
+			node = mediaElement.querySelector(`#${iframeId}`);
+			node.style.position = 'absolute';
+
+			if (originalNode.style.maxWidth) {
+				node.style.maxWidth = originalNode.style.maxWidth;
+			}
+		} else {
+			node = event.detail.target;
+		}
+		this.domNode = node;
+		this.node = node;
 	}
 
 	showControls (doAnimation) {
@@ -1099,7 +1115,10 @@ class MediaElementPlayer {
 
 		if (t.isVideo) {
 			// Responsive video is based on width: 100% and height: 100%
-			if (t.height === '100%') {
+			if (t.height === '100%' && t.width === '100%') {
+				newHeight = parentHeight;
+			}
+			else if (t.height === '100%') {
 				newHeight = parseFloat(parentWidth * nativeHeight / nativeWidth, 10);
 			} else {
 				newHeight = t.height >= t.width ? parseFloat(parentWidth / aspectRatio, 10) : parseFloat(parentWidth * aspectRatio, 10);
@@ -1231,8 +1250,8 @@ class MediaElementPlayer {
 
 		const
 			targetElement = t.getElement(t.container).querySelectorAll('object, embed, iframe, video'),
-			initHeight = t.height,
-			initWidth = t.width,
+			initHeight = parseFloat(t.height, 10),
+			initWidth = parseFloat(t.width, 10),
 			// scale to the target width
 			scaleX1 = parentWidth,
 			scaleY1 = (initHeight * parentWidth) / initWidth,

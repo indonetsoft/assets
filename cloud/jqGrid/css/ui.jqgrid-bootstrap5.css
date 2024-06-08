@@ -30,6 +30,7 @@
 }
 .ui-jqgrid .ui-jqgrid-caption {
 	text-align: left;
+    background-color: var(--bs-body-bg, #fff);
 }
 .ui-jqgrid .ui-jqgrid-title { 
 	/*padding-top: .475rem; */
@@ -313,7 +314,7 @@ div.tablediv > .table-bordered {
 .ui-jqgrid .ui-jqgrid-ftable {
 	table-layout:fixed;
 	margin-bottom:0 !important;
-	border: 0px none;	
+	/*border: 0 none;	*/
 }
 .ui-jqgrid tr.hrheadrow td,
 .ui-jqgrid tr.footrow td {
@@ -392,7 +393,7 @@ div.tablediv > .table-bordered {
 }
 .ui-jqgrid .ui-pg-button span { 
 	display: block; 
-	margin: 3px 2px; 
+	margin: 0px 3px; 
 	float:left;
 }
 .ui-pager-control > .ui-pg-table > tbody > tr > td {
@@ -404,12 +405,12 @@ div.tablediv > .table-bordered {
 .ui-jqgrid .ui-jqgrid-toppager .ui-pg-input { 
 	display: inline-block;
 	height:auto;
-	width: auto;
+	width: 50px;
 	font-size: inherit; 
 	margin:0;
 	line-height: inherit;
 	/*border: none; */
-	padding: 2px 3px
+	padding: 3px 3px
 }
 .ui-jqgrid .ui-pg-selbox, 
 .ui-jqgrid .ui-jqgrid-toppager .ui-pg-selbox {
@@ -417,9 +418,9 @@ div.tablediv > .table-bordered {
 	line-height:inherit; 
 	display:block; 
 	margin: 0;
-	width : auto;
-	padding: 0px 33px 0px 3px; 
-	border:none;
+	width : 55px;
+	padding: 3px 25px 3px 3px; 
+	border:2px 2px solid #ccc;
 }
 .ui-jqgrid .ui-separator {
 	height: 16px; 
@@ -720,9 +721,9 @@ div.tablediv > .table-bordered {
 	padding-top:5px;
 }
 .ui-jqdialog-content input.FormElement {
-	padding: .5em .3em; 
+	/*padding: .5em .3em; */
 	/*margin-bottom: 5px;*/
-	font-size: inherit;
+	/*font-size: inherit;*/
 }
 .ui-jqdialog-content select.FormElement {
 	padding:.3em; 
@@ -735,13 +736,15 @@ div.tablediv > .table-bordered {
 }
 
 .ui-jqdialog-content .CaptionTD {
-	vertical-align: middle;
+/**	vertical-align: middle;
 	border: 0 none; 
 	padding: 2px;
 	white-space: nowrap;
+*/
 }
 .ui-jqdialog-content .DataTD {
-	padding: 5px 5px;
+	
+	padding: 4px 4px;
 	border: 0 none; 
 	/*vertical-align: top;*/
 }
