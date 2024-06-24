@@ -1,5 +1,5 @@
 #!/bin/bash
-#./git.command
+#._.command
 export CURRENT="$(dirname "$0")"
 cd $CURRENT
 
