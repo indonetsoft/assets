@@ -39,6 +39,7 @@
 }
 .uk-button-mini .uk-icon:not(.uk-icon-mini) { width: 15px; }
 .uk-icon-mini { width: 11px; }
+.uk-icon-small { width: 16px; }
 .uk-label-muted {
 	background-color: transparent;
     color: #222;
