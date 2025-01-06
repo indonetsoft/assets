@@ -16,6 +16,7 @@ array=( \
 	https://github.com/ilikenwf/nestedSortable.git \
 	https://github.com/marioizquierdo/jquery.serializeJSON.git \
 	https://github.com/trentrichardson/jQuery-Timepicker-Addon.git \
+	https://github.com/EastDesire/jscolor.git \
 	https://github.com/mediaelement/mediaelement.git \
 	https://github.com/mediaelement/mediaelement-plugins.git \
 	https://github.com/armaaar/JQuery-Sticky-Table \
