@@ -138,3 +138,12 @@
 		transform: scale(1);
 	}
 }
+
+/* UIKit3.x force at jqueryui */
+.ui-state-default a.uk-button-primary,
+.ui-state-default a.uk-button-primary:link,
+.ui-state-default a.uk-button-primary:visited,
+a.uk-button-primary.ui-button,
+a.uk-button-primary:link.ui-button,
+a.uk-button-primary:visited.ui-button,
+.uk-button-primary.ui-button { color: #fff; }
