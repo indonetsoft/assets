@@ -147,3 +147,7 @@ a.uk-button-primary.ui-button,
 a.uk-button-primary:link.ui-button,
 a.uk-button-primary:visited.ui-button,
 .uk-button-primary.ui-button { color: #fff; }
+
+/**/
+.uk-modal-body .uk-sticky { top: inherit !important; }
+.uk-modal-body .uk-sticky .uk-alert-close { display: none; }
