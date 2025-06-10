@@ -569,10 +569,14 @@
 .uk-badge-success { background: #32d296; }
 .uk-badge-warning { background: #faa05a; }
 .uk-badge-danger { background: #f0506e; }
-.uk-card-badge.uk-label.uk-badge-muted { background-color: #8e8e93; }
-.uk-card-badge.uk-label.uk-badge-success { background-color: #32d296; }
-.uk-card-badge.uk-label.uk-badge-warning { background-color: #faa05a; }
-.uk-card-badge.uk-label.uk-badge-danger { background-color: #f0506e; }
+.tm-navbar-container .uk-badge-muted,
+.uk-card-badge.uk-label.uk-badge-muted { background-color: #8e8e93 !important; }
+.tm-navbar-container .uk-badge-success,
+.uk-card-badge.uk-label.uk-badge-success { background-color: #32d296 !important; }
+.tm-navbar-container .uk-badge-warning,
+.uk-card-badge.uk-label.uk-badge-warning { background-color: #faa05a !important; }
+.tm-navbar-container .uk-badge-danger,
+.uk-card-badge.uk-label.uk-badge-danger { background-color: #f0506e !important; }
 
 .uk-overlay-small { padding: 16px 16px; }
 
