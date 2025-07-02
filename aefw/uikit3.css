@@ -532,6 +532,26 @@
 }
 
 
+@media (min-width: 640px) {
+    .uk-form-horizontal-small .uk-form-label {
+        width: 100px;
+        margin-top: 7px;
+        float: left;
+    }
+    .uk-form-stacked > * > .uk-form-label {
+		width: auto;
+        float: none;
+    }
+    .uk-form-horizontal-small .uk-form-controls {
+        margin-left: 115px;
+    }
+	.uk-form-horizontal-small .uk-form-controls-text {
+        padding-top: 7px;
+    }
+	.uk-form-stacked > * > .uk-form-controls {
+        margin-left: 0px;
+    }
+}
 
 .uk-button-success {
     background-color: #32d296;
