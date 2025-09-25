@@ -111,6 +111,17 @@ function escape_string(string) {
         replace(/'/g, '\\\'').
         replace(/"/g, '\\"');
 }
+
+function _quotes_(str) {
+	if (!str) return '';
+	return str
+		.replace(/&/g, '&amp;')
+		.replace(/"/g, '&quot;')   // double quote
+		.replace(/'/g, '&#39;')    // single quote
+		.replace(/</g, '&lt;')
+		.replace(/>/g, '&gt;');
+}
+
 // END AEFW
 
 $(document).ready(function(e) {
