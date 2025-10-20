@@ -697,3 +697,41 @@ a.uk-button-primary:visited.ui-button,
 /**/
 .uk-modal-body .uk-sticky { top: inherit !important; }
 .uk-modal-body .uk-sticky .uk-alert-close { display: none; }
+
+/* --- Hybrid Responsive Table --- */
+@media (max-width: 640px) {
+	.uk-table.uk-table-hybrid thead {
+		display: none;
+	}
+	.uk-table.uk-table-hybrid tr {
+		display: block;
+		margin-bottom: 12px;
+		border: 1px solid #e5e5e5;
+		border-radius: 8px;
+		padding: 10px;
+		background: #fff;
+		box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+	}
+	.uk-table.uk-table-hybrid td {
+		display: flex;
+		justify-content: space-between;
+		text-align: right;
+		padding: 4px 0;
+		border: none !important;
+	}
+	.uk-table.uk-table-hybrid td::before {
+		content: attr(data-label);
+		font-weight: 600;
+		color: #999;
+	}
+/*
+	.uk-table.uk-table-hybrid .uk-text-right {
+		text-align: right !important;
+	}
+	.uk-table.uk-table-hybrid input.uk-input {
+		width: 120px !important;
+	}
+*/
+	.uk-table.uk-table-hybrid td[style*="opacity:0"] { display: none !important; }
+}
+

@@ -124,5 +124,24 @@ function _quotes_(str) {
 
 // END AEFW
 
+/* --- Hybrid Responsive Table --- */
+function hybridTable() {
+	const tables = document.querySelectorAll('.uk-table.uk-table-hybrid');
+	tables.forEach(table => {
+		const headers = Array.from(table.querySelectorAll('thead th')).map(th => th.textContent.trim());
+		table.querySelectorAll('tbody tr').forEach(row => {
+			Array.from(row.cells).forEach((cell, i) => {
+				if (!cell.hasAttribute('data-label') && headers[i]) {
+					cell.setAttribute('data-label', headers[i]);
+				}
+			});
+		});
+	});
+}
+function tableHybrid() {
+	return hybridTable();
+}
+document.addEventListener('DOMContentLoaded', tableHybrid);
+
 $(document).ready(function(e) {
 });
