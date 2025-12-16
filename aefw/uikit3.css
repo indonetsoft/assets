@@ -695,6 +695,13 @@ a.uk-button-primary:visited.ui-button,
 .uk-button-primary.ui-button { color: #fff; }
 
 /**/
+.uk-navbar-left a+a {
+    padding-left: 0;
+}
+.uk-navbar-container>.uk-container .uk-navbar-right {
+    padding-left: 15px;
+}
+
 .uk-modal-body .uk-sticky { top: inherit !important; }
 .uk-modal-body .uk-sticky .uk-alert-close { display: none; }
 
