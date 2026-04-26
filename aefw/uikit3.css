@@ -589,10 +589,21 @@
 	overflow: hidden;
 	white-space: normal;
 }
+
 .fancybox-container~.uk-modal,
 .fancybox-container~.uk-tooltip {
 	z-index: 99992;
 }
+
+.uk-form-small + .chosen-container {
+    height: 30px;
+}
+.uk-form-small + .chosen-container-single .chosen-single, .uk-form-small + .chosen-container-multi .chosen-choices {
+    height: 30px;
+    line-height: 30px;
+    padding: 0 6px;
+}
+
 .uk-table th { font-weight: bold; }
 .uk-description-list-divider > *:nth-child(n+2) > dt {
     border-top: 1px solid #e5e5e5;

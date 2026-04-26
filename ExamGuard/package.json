@@ -1,0 +1,46 @@
+{
+  "name": "exam-guard",
+  "version": "1.0.0",
+  "description": "Media play limiter and anti-cheat guard for web-based exams",
+  "type": "module",
+
+  "main"   : "dist/exam-guard.js",
+  "module" : "dist/exam-guard.esm.js",
+  "browser": "dist/exam-guard.js",
+
+  "exports": {
+    ".": {
+      "import" : "./dist/exam-guard.esm.js",
+      "require": "./dist/exam-guard.js",
+      "default": "./dist/exam-guard.js"
+    }
+  },
+
+  "files": [
+    "dist",
+    "src",
+    "README.md",
+    "LICENSE"
+  ],
+
+  "scripts": {
+    "build"         : "rollup -c",
+    "watch"         : "rollup -c --watch",
+    "dev"           : "rollup -c --watch",
+    "prepublishOnly": "npm run build"
+  },
+
+  "keywords": [
+    "exam", "cbt", "anti-cheat", "elearning",
+    "media-limiter", "youtube-player-limit",
+    "online-exam", "listening-test"
+  ],
+
+  "author" : "Aldo Expert",
+  "license": "MIT",
+
+  "devDependencies": {
+    "@rollup/plugin-terser": "^0.4.4",
+    "rollup"               : "^4.0.0"
+  }
+}

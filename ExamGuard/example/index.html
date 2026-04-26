@@ -1,0 +1,853 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+
+	<meta charset="UTF-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+	<title>ExamGuard — Contoh Penggunaan</title>
+
+	<style>
+
+		*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+		:root {
+			--bg        : #0f1117;
+			--surface   : #1a1d27;
+			--border    : #2a2d3e;
+			--accent    : #6366f1;
+			--accent-dim: #4f46e5;
+			--success   : #22c55e;
+			--warn      : #f59e0b;
+			--danger    : #ef4444;
+			--text      : #e2e8f0;
+			--muted     : #64748b;
+			--radius    : 12px;
+		}
+
+		body {
+			background : var(--bg);
+			color      : var(--text);
+			font-family: "Segoe UI", system-ui, sans-serif;
+			font-size  : 15px;
+			line-height: 1.6;
+			min-height : 100vh;
+		}
+
+		/* ── Header ── */
+		.header {
+			background   : var(--surface);
+			border-bottom: 1px solid var(--border);
+			padding      : 20px 32px;
+			display      : flex;
+			align-items  : center;
+			gap          : 16px;
+		}
+
+		.header-logo {
+			width           : 40px;
+			height          : 40px;
+			background      : var(--accent);
+			border-radius   : 10px;
+			display         : flex;
+			align-items     : center;
+			justify-content : center;
+			font-size       : 20px;
+		}
+
+		.header h1 {
+			font-size  : 1.3rem;
+			font-weight: 700;
+		}
+
+		.header span {
+			font-size : 0.8rem;
+			color     : var(--muted);
+			background: var(--border);
+			padding   : 2px 10px;
+			border-radius: 20px;
+			margin-left: 8px;
+		}
+
+		/* ── Layout ── */
+		.main {
+			max-width: 860px;
+			margin   : 0 auto;
+			padding  : 40px 24px 80px;
+		}
+
+		/* ── Section ── */
+		.section {
+			margin-bottom: 40px;
+		}
+
+		.section-title {
+			font-size    : 0.7rem;
+			font-weight  : 700;
+			letter-spacing: 0.12em;
+			text-transform: uppercase;
+			color        : var(--accent);
+			margin-bottom: 12px;
+		}
+
+		/* ── Card ── */
+		.card {
+			background   : var(--surface);
+			border       : 1px solid var(--border);
+			border-radius: var(--radius);
+			padding      : 24px;
+			margin-bottom: 16px;
+		}
+
+		.card h3 {
+			font-size    : 1rem;
+			font-weight  : 600;
+			margin-bottom: 6px;
+		}
+
+		.card p {
+			font-size    : 0.875rem;
+			color        : var(--muted);
+			margin-bottom: 16px;
+		}
+
+		/* ── Status Bar ── */
+		.status-bar {
+			background   : var(--bg);
+			border       : 1px solid var(--border);
+			border-radius: 8px;
+			padding      : 12px 16px;
+			margin-bottom: 16px;
+			display      : flex;
+			flex-wrap    : wrap;
+			gap          : 12px;
+		}
+
+		.status-item {
+			display    : flex;
+			align-items: center;
+			gap        : 8px;
+			font-size  : 0.825rem;
+		}
+
+		.badge {
+			display      : inline-block;
+			padding      : 2px 10px;
+			border-radius: 20px;
+			font-size    : 0.75rem;
+			font-weight  : 600;
+		}
+
+		.badge-green  { background: rgba(34,197,94,.15);  color: var(--success); }
+		.badge-yellow { background: rgba(245,158,11,.15); color: var(--warn);    }
+		.badge-red    { background: rgba(239,68,68,.15);  color: var(--danger);  }
+		.badge-blue   { background: rgba(99,102,241,.15); color: var(--accent);  }
+
+		/* ── Media ── */
+		audio, video {
+			width        : 100%;
+			border-radius: 8px;
+			background   : #000;
+			margin-bottom: 12px;
+			outline      : none;
+		}
+
+		video { max-height: 260px; object-fit: contain; }
+
+		.youtube-wrap {
+			position     : relative;
+			padding-top  : 56.25%;
+			border-radius: 8px;
+			overflow     : hidden;
+			margin-bottom: 12px;
+			background   : #000;
+		}
+
+		.youtube-wrap iframe {
+			position: absolute;
+			top: 0; left: 0;
+			width: 100%; height: 100%;
+			border: none;
+		}
+
+		/* ── Counter display ── */
+		/* counter-row, counter-bar, counter-fill, exam-guard-play-btn
+		   CSS di-inject otomatis oleh ExamGuard (exam-guard-core.js) */
+
+		/* ── Code block ── */
+		.code-block {
+			background   : #0d0f18;
+			border       : 1px solid var(--border);
+			border-radius: 8px;
+			padding      : 16px;
+			overflow-x   : auto;
+			font-family  : "Cascadia Code", "Fira Code", monospace;
+			font-size    : 0.8rem;
+			line-height  : 1.7;
+			color        : #a9b7d0;
+			margin-top   : 12px;
+		}
+
+		.code-block .kw  { color: #c792ea; }
+		.code-block .str { color: #c3e88d; }
+		.code-block .num { color: #f78c6c; }
+		.code-block .cm  { color: #546e7a; font-style: italic; }
+		.code-block .fn  { color: #82aaff; }
+
+		/* ── Config table ── */
+		table {
+			width        : 100%;
+			border-collapse: collapse;
+			font-size    : 0.825rem;
+			margin-top   : 8px;
+		}
+
+		th {
+			background   : var(--bg);
+			text-align   : left;
+			padding      : 10px 12px;
+			color        : var(--muted);
+			font-weight  : 600;
+			border-bottom: 1px solid var(--border);
+		}
+
+		td {
+			padding      : 10px 12px;
+			border-bottom: 1px solid var(--border);
+			vertical-align: top;
+		}
+
+		td code {
+			background   : var(--bg);
+			padding      : 1px 7px;
+			border-radius: 4px;
+			font-family  : monospace;
+			font-size    : 0.8rem;
+			color        : var(--accent);
+		}
+
+		tr:last-child td { border-bottom: none; }
+
+		/* ── Log ── */
+		#log-output {
+			background   : #0d0f18;
+			border       : 1px solid var(--border);
+			border-radius: 8px;
+			padding      : 14px 16px;
+			font-family  : monospace;
+			font-size    : 0.8rem;
+			min-height   : 100px;
+			max-height   : 200px;
+			overflow-y   : auto;
+			color        : #64748b;
+		}
+
+		#log-output .log-entry {
+			margin-bottom: 4px;
+		}
+
+		#log-output .log-entry.violation { color: var(--danger); }
+		#log-output .log-entry.blocked   { color: var(--warn);   }
+		#log-output .log-entry.info      { color: var(--accent);  }
+
+		/* ── Btn ── */
+		.btn {
+			display      : inline-block;
+			padding      : 8px 18px;
+			border-radius: 8px;
+			font-size    : 0.825rem;
+			font-weight  : 600;
+			cursor       : pointer;
+			border       : none;
+			transition   : opacity 0.2s;
+		}
+
+		.btn:hover { opacity: 0.85; }
+
+		.btn-danger {
+			background: var(--danger);
+			color     : #fff;
+		}
+
+		.btn-muted {
+			background: var(--border);
+			color     : var(--text);
+		}
+
+		.divider {
+			border     : none;
+			border-top : 1px solid var(--border);
+			margin     : 32px 0;
+		}
+
+		/* ── Responsive ── */
+		@media (max-width: 600px) {
+			.header { padding: 16px; }
+			.main   { padding: 24px 16px 60px; }
+		}
+
+	</style>
+
+</head>
+<body>
+
+<!-- ══════════════════════════════════════════════
+     HEADER
+══════════════════════════════════════════════ -->
+<header class="header">
+	<div class="header-logo">🛡️</div>
+	<div>
+		<h1>ExamGuard <span>v1.0.0</span></h1>
+	</div>
+</header>
+
+<main class="main">
+
+	<!-- ══════════════════════════════════════════════
+	     STATUS AKTIF
+	══════════════════════════════════════════════ -->
+	<div class="section">
+		<div class="section-title">Status Aktif</div>
+		<div class="status-bar">
+			<div class="status-item">
+				Fullscreen <span class="badge badge-yellow" id="badge-fs">Menunggu klik</span>
+			</div>
+			<div class="status-item">
+				Anti tab-switch <span class="badge badge-green">Aktif</span>
+			</div>
+			<div class="status-item">
+				Anti multi-tab <span class="badge badge-green">Aktif</span>
+			</div>
+			<div class="status-item">
+				Copy / Cut <span class="badge badge-green">Diblokir</span>
+			</div>
+			<div class="status-item">
+				Batas pemutaran <span class="badge badge-blue" id="badge-max">2x per media</span>
+			</div>
+		</div>
+		<p style="font-size:0.8rem; color:var(--muted);">
+			ℹ️ Klik di mana saja untuk mengaktifkan fullscreen. 
+			Buka tab baru atau minimize window untuk menguji deteksi tab switch.
+		</p>
+	</div>
+
+	<!-- ══════════════════════════════════════════════
+	     MEDIA UJIAN
+	══════════════════════════════════════════════ -->
+	<div class="section">
+		<div class="section-title">Media Ujian</div>
+
+		<!-- Wajib: semua media ada di dalam container .exam-media -->
+		<div class="exam-media">
+
+			<!-- ── Audio ── -->
+			<div class="card">
+				<h3>🎧 Listening Audio</h3>
+				<p>Audio berikut hanya dapat diputar maksimal <strong>2 kali</strong>. Counter tersimpan meski browser di-refresh.</p>
+
+				<audio controls preload="metadata">
+					<source src="https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3" type="audio/mpeg" />
+					Browser Anda tidak mendukung audio.
+				</audio>
+			</div>
+
+			<!-- ── Video ── -->
+			<div class="card">
+				<h3>🎬 Video Materi</h3>
+				<p>Video berikut hanya dapat diputar maksimal <strong>2 kali</strong>.</p>
+
+				<video controls preload="metadata">
+					<source src="https://www.w3schools.com/html/mov_bbb.mp4" type="video/mp4" />
+					Browser Anda tidak mendukung video.
+				</video>
+			</div>
+
+			<!-- ── YouTube ── -->
+			<div class="card">
+				<h3>▶️ YouTube Embed</h3>
+				<p>Video YouTube berikut hanya dapat diputar maksimal <strong>2 kali</strong> melalui YouTube IFrame API.</p>
+
+				<div class="youtube-wrap">
+					<iframe
+						src="https://www.youtube.com/embed/dQw4w9WgXcQ?enablejsapi=1"
+						title="YouTube video"
+						allowfullscreen
+					></iframe>
+				</div>
+
+
+			</div>
+
+		</div><!-- /.exam-media -->
+	</div>
+
+	<!-- ══════════════════════════════════════════════
+	     LOG PELANGGARAN
+	══════════════════════════════════════════════ -->
+	<div class="section">
+		<div class="section-title">Event Log</div>
+		<div class="card" style="padding-bottom:16px;">
+			<h3>🗒️ Activity Log</h3>
+			<p>Log pelanggaran dan event penting dari ExamGuard.</p>
+			<div id="log-output"><span style="color:#2a2d3e">-- Menunggu event --</span></div>
+			<div style="margin-top:12px; display:flex; gap:8px;">
+				<button id="btn-clear-log" class="btn btn-muted">Bersihkan Log</button>
+				<button id="btn-test-lock" class="btn btn-danger">⛔ Test Lock Exam</button>
+			</div>
+		</div>
+	</div>
+
+	<!-- ══════════════════════════════════════════════
+	     MEDIA CONTROL — lastPause / lastStop / lastCounter
+	══════════════════════════════════════════════ -->
+	<div class="section">
+		<div class="section-title">Media Control — Simulasi Tombol Next</div>
+		<div class="card">
+			<h3>⏭️ Simulasi Navigasi Soal</h3>
+			<p>
+				Putar salah satu media di atas, lalu tekan salah satu tombol berikut
+				untuk mensimulasikan user menekan <strong>Next</strong> sebelum media selesai.
+			</p>
+
+			<div style="display:flex; flex-wrap:wrap; gap:10px; margin-top:16px;">
+
+				<button id="btn-last-pause" class="btn" style="background:#6366f1; color:#fff;">
+					⏸ lastPause()
+				</button>
+
+				<button id="btn-last-stop" class="btn" style="background:#f59e0b; color:#fff;">
+					⏹ lastStop()
+				</button>
+
+				<button id="btn-last-counter" class="btn" style="background:#ef4444; color:#fff;">
+					⏹+1 lastCounter()
+				</button>
+
+				<button id="btn-play-first" class="btn" style="background:#10b981; color:#fff;">
+					▶ playFirstMedia()
+				</button>
+
+			</div>
+
+			<div style="margin-top:20px; background:var(--bg); border:1px solid var(--border); border-radius:8px; padding:14px; font-size:0.825rem; color:var(--muted); line-height:1.8;">
+				<strong style="color:var(--text);">Penjelasan masing-masing:</strong><br>
+				<span style="color:#6366f1;">⏸ lastPause()</span> — Pause media. Posisi tetap, bisa di-resume jika user kembali ke soal ini.<br>
+				<span style="color:#f59e0b;">⏹ lastStop()</span> — Stop + reset ke awal. Counter tidak berubah.<br>
+				<span style="color:#ef4444;">⏹+1 lastCounter()</span> — Stop + reset ke awal + tambah counter +1. Cocok jika meninggalkan media dihitung sebagai 1x play.<br>
+				<span style="color:#10b981;">▶ playFirstMedia()</span> — Play media pertama yang visible di viewport dan belum mencapai maxPlay.
+			</div>
+		</div>
+	</div>
+
+	<hr class="divider" />
+
+	<!-- ══════════════════════════════════════════════
+	     MEDIA CONTROLS INFO
+	══════════════════════════════════════════════ -->
+	<div class="section">
+		<div class="section-title">mediaControls &amp; mediaPlayButton</div>
+
+		<div class="card">
+			<p>
+				Ketika <code>mediaControls: false</code>, ExamGuard menyembunyikan kontrol bar native browser
+				dan secara otomatis menyisipkan baris kontrol di bawah setiap elemen <code>&lt;audio&gt;</code>
+				dan <code>&lt;video&gt;</code> — tanpa perlu markup tambahan di HTML.
+				Cocok untuk konten yang dimasukkan via WYSIWYG editor (CKEditor, TinyMCE, dsb.).
+			</p>
+
+			<div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:12px; margin-top:16px;">
+
+				<div style="background:var(--bg); border:1px solid var(--border); border-radius:8px; padding:16px;">
+					<div style="font-weight:600; margin-bottom:8px; font-size:0.875rem;">
+						<span class="badge badge-blue">mediaControls: true</span>
+					</div>
+					<p style="font-size:0.825rem; color:var(--muted); margin:0;">
+						Kontrol bar native browser tampil penuh. ExamGuard tidak mengubah tampilan —
+						hanya membatasi jumlah pemutaran di belakang layar. <em>(Default)</em>
+					</p>
+				</div>
+
+				<div style="background:var(--bg); border:1px solid var(--border); border-radius:8px; padding:16px;">
+					<div style="font-weight:600; margin-bottom:8px; font-size:0.875rem;">
+						<span class="badge badge-yellow">mediaControls: false</span>
+						<span class="badge badge-green" style="margin-left:4px;">mediaPlayButton: true</span>
+					</div>
+					<p style="font-size:0.825rem; color:var(--muted); margin:0 0 8px;">
+						Kontrol bar native disembunyikan. ExamGuard menyisipkan baris otomatis:
+					</p>
+					<code style="font-size:0.78rem; color:var(--accent);">[ ▶ ]&nbsp;&nbsp;0:12 / 3:45&nbsp;&nbsp;[████░░]&nbsp;&nbsp;(1/2)</code>
+				</div>
+
+				<div style="background:var(--bg); border:1px solid var(--border); border-radius:8px; padding:16px;">
+					<div style="font-weight:600; margin-bottom:8px; font-size:0.875rem;">
+						<span class="badge badge-yellow">mediaControls: false</span>
+						<span class="badge badge-red" style="margin-left:4px;">mediaPlayButton: false</span>
+					</div>
+					<p style="font-size:0.825rem; color:var(--muted); margin:0 0 8px;">
+						Headless total — tidak ada kontrol sama sekali. Progress dan counter tetap ditampilkan:
+					</p>
+					<code style="font-size:0.78rem; color:var(--accent);">[████░░░░░░░░]&nbsp;&nbsp;(1/2)</code>
+				</div>
+
+			</div>
+
+			<div style="margin-top:16px; background:var(--bg); border:1px solid var(--border); border-radius:8px; padding:14px; font-size:0.825rem; color:var(--muted); line-height:1.8;">
+				<strong style="color:var(--text);">Catatan teknis:</strong><br>
+				• Baris kontrol (<code>.counter-row</code>) dibuat otomatis oleh ExamGuard — tidak perlu markup di HTML.<br>
+				• Progress bar menggunakan <code>&lt;progress value max&gt;</code> native dengan satuan <strong>detik</strong> — tidak ada animasi CSS yang menyebabkan efek "jalan-jalan".<br>
+				• Counter <code>(n/max)</code> disinkronkan langsung dari storage saat event <code>play</code>, <code>pause</code>, dan <code>ended</code>.<br>
+				• CSS seluruh komponen di-inject otomatis via <code>&lt;style id="exam-guard-styles"&gt;</code> — tidak perlu file CSS terpisah.
+			</div>
+		</div>
+	</div>
+
+	<hr class="divider" />
+
+	<!-- ══════════════════════════════════════════════
+	     DOKUMENTASI PENGGUNAAN
+	══════════════════════════════════════════════ -->
+	<div class="section">
+		<div class="section-title">Cara Penggunaan</div>
+
+		<!-- Browser -->
+		<div class="card">
+			<h3>1. Browser — via &lt;script&gt; tag</h3>
+			<p>Cara paling sederhana. Cocok untuk sistem CBT tanpa build tool.</p>
+			<div class="code-block"><pre><span class="cm">&lt;!-- Gunakan versi minified untuk production --&gt;</span>
+&lt;<span class="kw">script</span> <span class="fn">src</span>=<span class="str">"dist/exam-guard.min.js"</span>&gt;&lt;/<span class="kw">script</span>&gt;
+
+&lt;<span class="kw">div</span> <span class="fn">class</span>=<span class="str">"exam-media"</span>&gt;
+  &lt;<span class="kw">audio</span> <span class="fn">src</span>=<span class="str">"listening1.mp3"</span> <span class="fn">controls</span>&gt;&lt;/<span class="kw">audio</span>&gt;
+  &lt;<span class="kw">video</span> <span class="fn">src</span>=<span class="str">"video1.mp4"</span> <span class="fn">controls</span>&gt;&lt;/<span class="kw">video</span>&gt;
+  &lt;<span class="kw">iframe</span> <span class="fn">src</span>=<span class="str">"https://www.youtube.com/embed/VIDEO_ID?enablejsapi=1"</span>&gt;&lt;/<span class="kw">iframe</span>&gt;
+&lt;/<span class="kw">div</span>&gt;
+
+&lt;<span class="kw">script</span>&gt;
+  <span class="kw">new</span> <span class="fn">ExamGuard</span>({
+    selector           : <span class="str">".exam-media"</span>,
+    sessionToken       : <span class="str">"TOKEN_DARI_SERVER"</span>,  <span class="cm">// wajib, unik per peserta</span>
+    maxPlay            : <span class="num">2</span>,
+    fullscreenMode     : <span class="kw">true</span>,
+    disableCopy        : <span class="kw">true</span>,
+    disableTabSwitch   : <span class="kw">true</span>,
+    preventMultipleTab : <span class="kw">true</span>,
+    forcePlayUntilEnd  : <span class="kw">false</span>,
+    lockOnViolation    : <span class="kw">false</span>,
+    countOnPause       : <span class="kw">false</span>,
+    saveLastSeek       : <span class="kw">false</span>,  <span class="cm">// restore posisi seek setelah refresh</span>
+    ytClean            : <span class="kw">true</span>,
+    ytOverlay          : <span class="kw">false</span>,
+    devMode            : <span class="kw">false</span>,  <span class="cm">// jangan aktifkan di production</span>
+
+    <span class="fn">onViolation</span>(type, message) {
+      console.warn(<span class="str">"Pelanggaran:"</span>, type, message);
+    },
+
+    <span class="fn">onMediaBlocked</span>(mediaKey) {
+      console.warn(<span class="str">"Media diblokir:"</span>, mediaKey);
+    },
+  });
+&lt;/<span class="kw">script</span>&gt;</pre></div>
+		</div>
+
+		<!-- NPM -->
+		<div class="card">
+			<h3>2. NPM / ES Module</h3>
+			<p>Untuk proyek dengan bundler seperti Vite, Webpack, atau Rollup.</p>
+			<div class="code-block"><pre><span class="cm">// Install</span>
+npm install exam-guard
+
+<span class="cm">// Penggunaan</span>
+<span class="kw">import</span> ExamGuard <span class="kw">from</span> <span class="str">"exam-guard"</span>;
+
+<span class="kw">const</span> guard = <span class="kw">new</span> <span class="fn">ExamGuard</span>({
+  selector           : <span class="str">".exam-media"</span>,
+  sessionToken       : <span class="str">"TOKEN_DARI_SERVER"</span>,
+  maxPlay            : <span class="num">2</span>,
+  fullscreenMode     : <span class="kw">true</span>,
+  disableCopy        : <span class="kw">true</span>,
+  disableTabSwitch   : <span class="kw">true</span>,
+  preventMultipleTab : <span class="kw">true</span>,
+  forcePlayUntilEnd  : <span class="kw">false</span>,
+  lockOnViolation    : <span class="kw">false</span>,
+  countOnPause       : <span class="kw">false</span>,
+  saveLastSeek       : <span class="kw">false</span>,
+  ytClean            : <span class="kw">true</span>,
+  ytOverlay          : <span class="kw">false</span>,
+  devMode            : <span class="kw">false</span>,
+
+  <span class="cm">// Callback kustom (opsional)</span>
+  <span class="fn">onViolation</span>(type, msg) {
+    console.warn(<span class="str">"Pelanggaran:"</span>, type, msg);
+  },
+  <span class="fn">onMediaBlocked</span>(key) {
+    console.warn(<span class="str">"Media diblokir:"</span>, key);
+  },
+});</pre></div>
+		</div>
+
+		<!-- Framework7 -->
+		<div class="card">
+			<h3>3. Framework7 Plugin</h3>
+			<p>Integrasi otomatis dengan siklus hidup halaman Framework7.</p>
+			<div class="code-block"><pre><span class="kw">import</span> ExamGuard         <span class="kw">from</span> <span class="str">"./src/exam-guard-core.js"</span>;
+<span class="kw">import</span> ExamGuardF7Plugin <span class="kw">from</span> <span class="str">"./src/exam-guard-f7-plugin.js"</span>;
+<span class="kw">import</span> Framework7        <span class="kw">from</span> <span class="str">"framework7"</span>;
+
+<span class="kw">const</span> app = <span class="kw">new</span> <span class="fn">Framework7</span>({
+  <span class="cm">// Daftarkan plugin</span>
+  plugins: [ExamGuardF7Plugin],
+
+  <span class="cm">// Konfigurasi ExamGuard</span>
+  examGuard: {
+    selector           : <span class="str">".exam-media"</span>,
+    sessionToken       : <span class="str">"TOKEN_DARI_SERVER"</span>,
+    maxPlay            : <span class="num">2</span>,
+    fullscreenMode     : <span class="kw">true</span>,
+    disableCopy        : <span class="kw">true</span>,
+    disableTabSwitch   : <span class="kw">true</span>,
+    preventMultipleTab : <span class="kw">true</span>,
+    forcePlayUntilEnd  : <span class="kw">false</span>,
+    lockOnViolation    : <span class="kw">false</span>,
+    countOnPause       : <span class="kw">false</span>,
+    saveLastSeek       : <span class="kw">false</span>,
+    ytClean            : <span class="kw">true</span>,
+    ytOverlay          : <span class="kw">false</span>,
+    devMode            : <span class="kw">false</span>,  <span class="cm">// DEV ONLY — aktifkan shortcut Ctrl+Shift+A+E</span>
+
+    <span class="fn">onViolation</span>(type, message) {
+      console.warn(<span class="str">"Pelanggaran:"</span>, type, message);
+    },
+
+    <span class="fn">onMediaBlocked</span>(mediaKey) {
+      console.warn(<span class="str">"Media diblokir:"</span>, mediaKey);
+    },
+  }
+});
+
+<span class="cm">// ExamGuard akan otomatis aktif di halaman yang mengandung .exam-media
+// dan dibersihkan saat halaman dihapus dari DOM.</span></pre></div>
+		</div>
+
+	</div>
+
+	<!-- ══════════════════════════════════════════════
+	     TABEL KONFIGURASI
+	══════════════════════════════════════════════ -->
+	<div class="section">
+		<div class="section-title">Referensi Konfigurasi</div>
+		<div class="card" style="padding:0; overflow:hidden;">
+			<table>
+				<thead>
+					<tr>
+						<th>Parameter</th>
+						<th>Default</th>
+						<th>Keterangan</th>
+					</tr>
+				</thead>
+				<tbody>
+					<tr>
+						<td><code>selector</code></td>
+						<td><code>.exam-media</code></td>
+						<td>CSS selector container media</td>
+					</tr>
+					<tr>
+						<td><code>sessionToken</code></td>
+						<td><code>required</code></td>
+						<td>Token sesi unik per peserta dari server. Wajib diisi.</td>
+					</tr>
+					<tr>
+						<td><code>maxPlay</code></td>
+						<td><code>2</code></td>
+						<td>Batas jumlah pemutaran per media</td>
+					</tr>
+					<tr>
+						<td><code>fullscreenMode</code></td>
+						<td><code>true</code></td>
+						<td>Paksa fullscreen saat ujian. Keluar fullscreen = pelanggaran.</td>
+					</tr>
+					<tr>
+						<td><code>disableCopy</code></td>
+						<td><code>true</code></td>
+						<td>Blokir copy, cut, klik kanan, Ctrl+C/V/U/S/A, dan F12</td>
+					</tr>
+					<tr>
+						<td><code>disableTabSwitch</code></td>
+						<td><code>true</code></td>
+						<td>Deteksi perpindahan tab via Visibility API</td>
+					</tr>
+					<tr>
+						<td><code>preventMultipleTab</code></td>
+						<td><code>true</code></td>
+						<td>Blokir tab ganda via BroadcastChannel (fallback localStorage)</td>
+					</tr>
+					<tr>
+						<td><code>forcePlayUntilEnd</code></td>
+						<td><code>false</code></td>
+						<td>Media tidak boleh di-pause setelah diputar</td>
+					</tr>
+					<tr>
+						<td><code>lockOnViolation</code></td>
+						<td><code>false</code></td>
+						<td>Hentikan dan kunci ujian jika ada pelanggaran</td>
+					</tr>
+					<tr>
+						<td><code>countOnPause</code></td>
+						<td><code>false</code></td>
+						<td>Tambah counter saat media di-pause. <strong>false</strong> = counter hanya bertambah saat play dari awal atau setelah ended. <strong>true</strong> = setiap pause dianggap akhir sesi, resume berikutnya dihitung play baru.</td>
+					</tr>
+					<tr>
+						<td><code>saveLastSeek</code></td>
+						<td><code>false</code></td>
+						<td>
+							Simpan posisi terakhir media ke localStorage dan restore otomatis saat halaman di-refresh.
+							Berlaku untuk audio, video, dan YouTube.<br><br>
+							Posisi disimpan tiap <code>timeupdate</code> (audio/video) atau tiap 1 detik via interval (YouTube).<br>
+							Seek position <strong>dihapus otomatis</strong> saat media selesai (<code>ended</code>) atau saat <code>clearSession()</code> dipanggil.
+						</td>
+					</tr>
+					<tr>
+						<td><code>ytClean</code></td>
+						<td><code>true</code></td>
+						<td>
+							Bersihkan UI YouTube embed. Menyembunyikan kontrol player, logo, rekomendasi,
+							anotasi, tombol fullscreen, dan keyboard shortcut. Serta memasang overlay
+							untuk mencegah klik langsung ke player (logo, title, share, tonton nanti).
+						</td>
+					</tr>
+					<tr>
+						<td><code>ytOverlay</code></td>
+						<td><code>false</code></td>
+						<td>
+							<strong>false</strong> — Pasang 2 overlay tipis: atas 25% dan bawah 25%.
+							Area tengah 50% tetap terbuka sehingga tombol play native YouTube masih bisa diklik.
+							Overlay atas memblokir logo &amp; title, overlay bawah memblokir share &amp; rekomendasi.<br><br>
+							<strong>true</strong> — 1 overlay penuh menutup seluruh player.
+							Semua klik ditangani via IFrame API (toggle play/pause).
+							Jika <code>forcePlayUntilEnd: true</code>, klik diabaikan sepenuhnya.
+						</td>
+					</tr>
+					<tr>
+						<td><code>devMode</code></td>
+						<td><code>false</code></td>
+						<td>Mode developer. Aktifkan shortcut <strong>Ctrl+Shift+A+E</strong> untuk reset semua counter media sesi. <strong>Jangan aktifkan di production.</strong></td>
+					</tr>
+					<tr>
+						<td><code>onViolation</code></td>
+						<td><code>null</code></td>
+						<td>Callback <code>(type, message)</code> saat pelanggaran. Jika null, tampil alert.</td>
+					</tr>
+					<tr>
+						<td><code>onMediaBlocked</code></td>
+						<td><code>null</code></td>
+						<td>Callback <code>(mediaKey)</code> saat media diblokir. Jika null, tampil alert.</td>
+					</tr>
+				</tbody>
+			</table>
+		</div>
+	</div>
+
+</main>
+
+<!-- ══════════════════════════════════════════════
+     SCRIPT
+══════════════════════════════════════════════ -->
+<script src="../dist/exam-guard.min.js?_=1.0.0.6" type="text/javascript"></script>
+<script>
+	/* ── Inisialisasi ── */
+	const guard = new ExamGuard({
+		selector    : ".exam-media",
+		sessionToken: "DEMO_SESSION_TOKEN_001",  // Di produksi: token dari server per peserta
+		maxPlay     : 2,
+		fullscreenMode     : false,
+		disableCopy        : true,
+		disableTabSwitch   : true,
+		preventMultipleTab : true,
+		forcePlayUntilEnd  : false,
+		lockOnViolation    : false,
+		countOnPause       : true,
+		saveLastSeek       : true,
+		mediaControls      : false,
+		mediaPlayButton    : true,
+		ytClean            : true,
+		ytOverlay          : false,
+		devMode            : true,
+		// Callback kustom — tampilkan di log, bukan alert bawaan
+		onViolation(type, message) {
+			addLog(message, "violation");
+		},
+		onMediaBlocked(mediaKey) {
+			addLog("Batas pemutaran tercapai: " + mediaKey.substring(0, 60) + "…", "blocked");
+		},
+	});
+
+	function hashStr(str) {
+		let h = 0;
+		for (let i = 0; i < str.length; i++) { h = (h << 5) - h + str.charCodeAt(i); h |= 0; }
+		return "m" + Math.abs(h);
+	}
+
+	function getStorageKey(token, src) {
+		return "exam_guard:" + token + ":" + hashStr(src);
+	}
+
+	/* ── Fullscreen badge ── */
+	document.addEventListener("fullscreenchange", () => {
+		const badge = document.getElementById("badge-fs");
+		if (document.fullscreenElement) {
+			badge.textContent  = "Aktif";
+			badge.className    = "badge badge-green";
+		} else {
+			badge.textContent  = "Tidak aktif";
+			badge.className    = "badge badge-red";
+		}
+	});
+
+	/* ── Log helper ── */
+	function addLog(message, type = "info") {
+		const el      = document.getElementById("log-output");
+		const entry   = document.createElement("div");
+		const ts      = new Date().toLocaleTimeString("id-ID");
+		entry.className = "log-entry " + type;
+		entry.textContent = "[" + ts + "] " + message;
+		el.innerHTML === '<span style="color:#2a2d3e">-- Menunggu event --</span>'
+			? el.innerHTML = "" : null;
+		el.prepend(entry);
+	}
+
+	document.getElementById("btn-play-first").addEventListener("click", () => {
+		guard.playFirstMedia();
+		addLog("playFirstMedia() dipanggil — play media visible pertama yang belum maxPlay.", "info");
+	});
+
+	document.getElementById("btn-last-pause").addEventListener("click", () => {
+		guard.lastPause();
+		addLog("lastPause() dipanggil — media di-pause, posisi dipertahankan.", "info");
+	});
+
+	document.getElementById("btn-last-stop").addEventListener("click", () => {
+		guard.lastStop();
+		addLog("lastStop() dipanggil — media di-stop dan direset ke awal.", "info");
+	});
+
+	document.getElementById("btn-last-counter").addEventListener("click", () => {
+		guard.lastCounter();
+		addLog("lastCounter() dipanggil — media di-stop, reset, counter +1.", "blocked");
+	});
+
+	document.getElementById("btn-clear-log").addEventListener("click", () => {
+		document.getElementById("log-output").innerHTML =
+			'<span style="color:#2a2d3e">-- Log dibersihkan --</span>';
+	});
+
+	document.getElementById("btn-test-lock").addEventListener("click", () => {
+		if (confirm("Yakin ingin menguji fitur lockExam? Halaman akan terkunci.")) {
+			guard._lockExam();
+		}
+	});
+
+	addLog("ExamGuard berhasil diinisialisasi.", "info");
+
+</script>
+
+</body>
+</html>
